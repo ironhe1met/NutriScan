@@ -1,7 +1,9 @@
 import torch
 from pathlib import Path
 
-MODEL_URL = "https://huggingface.co/dwililiya/food101-model-classification"
+# Пряме посилання на файл з вагами моделі (EfficientNet-B0)
+# У репозиторії HuggingFace файл називається `weights.pt`
+MODEL_URL = "https://huggingface.co/dwililiya/food101-model-classification/resolve/main/weights.pt"
 
 class FoodClassifier:
     """Wrapper for food classification model."""
