@@ -159,7 +159,7 @@ python scripts/download_weights.py
 ```bash
 python run.py
 ```
-Або скористайтеся скриптом [setup_server.sh](./setup_server.sh) для автоматичного налаштування.
+Також можна запустити скрипт `sudo bash scripts/setup_server.sh` для автоматичного налаштування.
 
 
 
