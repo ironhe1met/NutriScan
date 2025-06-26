@@ -1,6 +1,3 @@
-from collections.abc import Iterable
-
-
 def estimate_weight(area_px: float, plate_diameter_cm: float = 25.0) -> float:
     """Estimate ingredient weight from segmented area in pixels.
 
