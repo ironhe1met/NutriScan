@@ -1,5 +1,8 @@
 from pathlib import Path
 
+# Посилання на ваги моделі YOLO
+WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8n-seg.pt"
+
 class IngredientDetector:
     """Wrapper for YOLOv8 segmentation model."""
 

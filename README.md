@@ -153,7 +153,13 @@ Requests (для API), Pydantic (для схем), Uvicorn (для запуск�
 pip install -r requirements.txt
 ```
 
-2. Run the API server:
+2. Завантажте ваги моделей:
+
+```bash
+python scripts/download_weights.py
+```
+
+3. Run the API server:
 
 ```bash
 python run.py
