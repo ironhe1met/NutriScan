@@ -152,7 +152,7 @@
 
 Спочатку встановіть Python 3.10+ і, за бажанням, створіть віртуальне середовище. Потім виконайте:
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt  # файл містить перевірені версії бібліотек
 python scripts/download_weights.py
 ```
 Запустіть сервер командою:

@@ -14,7 +14,7 @@
    ```
 4. **Встановіть залежності:**
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt  # використовуються фіксовані версії
    ```
 5. **Завантажте ваги моделей:**
    ```bash
