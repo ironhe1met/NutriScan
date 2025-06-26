@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+requests
+pillow
+torch
+ultralytics
+opencv-python

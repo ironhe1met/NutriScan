@@ -144,3 +144,19 @@ Python 3.10+
 PyTorch, Ultralytics YOLO, OpenCV
 FastAPI або Flask, SQLite3
 Requests (для API), Pydantic (для схем), Uvicorn (для запуску)
+
+## Usage
+
+1. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the API server:
+
+```bash
+python run.py
+```
+
+Send a POST request to `http://localhost:8000/analyze` with form-data field `image` containing the food photo.
