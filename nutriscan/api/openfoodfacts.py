@@ -23,7 +23,8 @@ API_URL = "https://world.openfoodfacts.org/api/v2/search"
 
 class FoodInfoCache:
     def __init__(self, db_path: Path = DB_PATH) -> None:
-        self.conn = sqlite3.connect(db_path)
+        # Allow connection sharing across FastAPI workers
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.execute(CREATE_TABLE)
 
     def get(self, name: str) -> dict[str, Any] | None:
