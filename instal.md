@@ -26,4 +26,6 @@
    ```
    API буде доступний на `http://<server-ip>:8000`.
 
+7. **Автоматична установка:** запустіть `sudo bash scripts/setup_server.sh`.
+
 При необхідності налаштуйте reverse proxy (наприклад, Nginx) та службу systemd для автозапуску.
