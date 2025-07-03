@@ -1,4 +1,5 @@
-import requests
+import asyncio
+import httpx
 from pathlib import Path
 
 from nutriscan.models.classifier import MODEL_URL as CLASSIFIER_URL
@@ -8,23 +9,23 @@ WEIGHTS_DIR = Path("weights")
 WEIGHTS_DIR.mkdir(exist_ok=True)
 
 
-def download(url: str, dest: Path) -> None:
+async def download(url: str, dest: Path) -> None:
     if dest.exists():
         print(f"{dest} вже існує, пропускаємо завантаження")
         return
     print(f"Завантаження {url} до {dest}")
-    with requests.get(url, timeout=30, stream=True) as response:
+codex/заміна-requests-на-httpx.asyncclient
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.get(url)
         response.raise_for_status()
-        with dest.open("wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
+        dest.write_bytes(response.content)
+main
 
 
-def main() -> None:
-    download(CLASSIFIER_URL, WEIGHTS_DIR / "classifier.pt")
-    download(DETECTOR_URL, WEIGHTS_DIR / "detector.pt")
+async def main() -> None:
+    await download(CLASSIFIER_URL, WEIGHTS_DIR / "classifier.pt")
+    await download(DETECTOR_URL, WEIGHTS_DIR / "detector.pt")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
