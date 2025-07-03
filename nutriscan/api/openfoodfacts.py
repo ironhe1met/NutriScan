@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-import requests
+import httpx
 
 DB_PATH = Path("data/cache.db")
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -55,12 +55,13 @@ class FoodInfoCache:
         self.conn.commit()
 
 
-def fetch_info(name: str) -> dict[str, Any] | None:
+async def fetch_info(name: str) -> dict[str, Any] | None:
     params = {"search_terms": name, "page_size": 1, "fields": "nutriments"}
     try:
-        resp = requests.get(API_URL, params=params, timeout=10)
-        resp.raise_for_status()
-    except requests.RequestException:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(API_URL, params=params)
+            resp.raise_for_status()
+    except httpx.HTTPError:
         return None
     data = resp.json()
     products = data.get("products")
@@ -78,11 +79,11 @@ def fetch_info(name: str) -> dict[str, Any] | None:
 cache = FoodInfoCache()
 
 
-def get_nutrition(name: str) -> dict[str, Any] | None:
+async def get_nutrition(name: str) -> dict[str, Any] | None:
     info = cache.get(name)
     if info:
         return info
-    info = fetch_info(name)
+    info = await fetch_info(name)
     if info:
         cache.set(name, info)
     return info

@@ -56,7 +56,7 @@
 * Python: 3.10+
 * RAM: 8+ GB
 * GPU: бажано, але не обов’язково
-* Бібліотеки: PyTorch, OpenCV, pandas, numpy, gradio / streamlit, requests, sqlite3
+* Бібліотеки: PyTorch, OpenCV, pandas, numpy, gradio / streamlit, httpx, sqlite3
 
 4. Архітектура
    \[Фото] -> \[Класифікатор страв] -> \[Segmenter інгредієнтів] -> \[Оцінка ваги] -> \[Open Food Facts API] -> \[Обчислення] -> \[UI]
