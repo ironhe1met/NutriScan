@@ -13,9 +13,12 @@ def download(url: str, dest: Path) -> None:
         print(f"{dest} вже існує, пропускаємо завантаження")
         return
     print(f"Завантаження {url} до {dest}")
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-    dest.write_bytes(response.content)
+    with requests.get(url, timeout=30, stream=True) as response:
+        response.raise_for_status()
+        with dest.open("wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
 
 
 def main() -> None:
