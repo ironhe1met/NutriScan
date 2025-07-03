@@ -52,7 +52,7 @@ async def analyze(image: UploadFile = File(...)):
         name = det.get("label", "ingredient")
         area = det.get("area", 0)
         weight = estimate_weight(area)
-        info = get_nutrition(name) or {}
+        info = await get_nutrition(name) or {}
         calories = info.get("calories")
         if calories is not None:
             total_calories += (calories / 100) * weight
