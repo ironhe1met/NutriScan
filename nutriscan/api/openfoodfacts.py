@@ -54,6 +54,14 @@ class FoodInfoCache:
         )
         self.conn.commit()
 
+    def close(self) -> None:
+        """Закриває з'єднання з базою даних."""
+        self.conn.close()
+
+    def __del__(self) -> None:
+        self.close()
+
+
 
 async def fetch_info(name: str) -> dict[str, Any] | None:
     params = {"search_terms": name, "page_size": 1, "fields": "nutriments"}

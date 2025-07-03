@@ -5,7 +5,7 @@ import io
 
 from .models.classifier import FoodClassifier
 from .models.detector import IngredientDetector
-from .api.openfoodfacts import get_nutrition
+from .api.openfoodfacts import get_nutrition, cache
 from .utils.weight_estimation import estimate_weight
 
 app = FastAPI()
@@ -14,6 +14,12 @@ detector = IngredientDetector()
 
 classifier.load()
 detector.load()
+
+
+@app.on_event("shutdown")
+def shutdown_event() -> None:
+    """Закриття ресурсів при завершенні роботи сервера."""
+    cache.close()
 
 
 class IngredientResult(BaseModel):
