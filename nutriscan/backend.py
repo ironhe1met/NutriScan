@@ -54,10 +54,12 @@ async def analyze(image: UploadFile = File(...)):
     total_weight = 0.0
     total_calories = 0.0
 
+    img_area = float(img.width * img.height)
+
     for det in detections:
         name = det.get("label", "ingredient")
         area = det.get("area", 0)
-        weight = estimate_weight(area)
+        weight = estimate_weight(area, image_area_px=img_area)
         info = await get_nutrition(name) or {}
         calories = info.get("calories")
         if calories is not None:
