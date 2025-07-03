@@ -1,5 +1,4 @@
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from PIL import Image
 import io
