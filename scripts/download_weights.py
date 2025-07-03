@@ -14,12 +14,10 @@ async def download(url: str, dest: Path) -> None:
         print(f"{dest} вже існує, пропускаємо завантаження")
         return
     print(f"Завантаження {url} до {dest}")
-codex/заміна-requests-на-httpx.asyncclient
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.get(url)
         response.raise_for_status()
         dest.write_bytes(response.content)
-main
 
 
 async def main() -> None:
