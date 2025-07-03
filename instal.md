@@ -6,10 +6,10 @@
    python3 -m venv venv
    source venv/bin/activate
    ```
-3. **Скопіюйте проект** на сервер, наприклад у каталог `/opt/nutriscan`:
+3. **Скопіюйте проєкт** на сервер, наприклад у каталог `/opt/nutriscan`:
    ```bash
    mkdir -p /opt
-   git clone <repo> /opt/nutriscan
+   git clone https://github.com/ironhe1met/NutriScan.git /opt/nutriscan
    cd /opt/nutriscan
    ```
 4. **Встановіть залежності:**

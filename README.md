@@ -150,7 +150,13 @@
 
 ## Installation
 
-Спочатку встановіть Python 3.10+ і, за бажанням, створіть віртуальне середовище. Потім виконайте:
+Спочатку завантажте проєкт на сервер:
+```bash
+mkdir -p /opt
+git clone https://github.com/ironhe1met/NutriScan.git /opt/nutriscan
+cd /opt/nutriscan
+```
+Після цього встановіть Python 3.10+ і, за бажанням, створіть віртуальне середовище. Далі виконайте:
 ```bash
 pip install -r requirements.txt  # файл містить перевірені версії бібліотек
 python scripts/download_weights.py
@@ -159,7 +165,7 @@ python scripts/download_weights.py
 ```bash
 python run.py
 ```
-Також можна запустити скрипт `sudo bash scripts/setup_server.sh` для автоматичного налаштування.
+Або одразу виконайте скрипт `sudo bash scripts/setup_server.sh` для автоматичного налаштування та запуску.
 
 
 
