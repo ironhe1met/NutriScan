@@ -1,18 +1,19 @@
 #!/bin/bash
+set -e
 
-echo "🔧 Встановлення залежностей..."
+echo "🔧 Installing system packages..."
 sudo apt update
-sudo apt install -y python3.10 python3.10-venv python3-pip git
+sudo apt install -y python3.10 python3.10-venv python3-pip
 
-echo "📦 Створення venv..."
+echo "📦 Creating virtual environment..."
 python3.10 -m venv venv
 source venv/bin/activate
 
-echo "📥 Встановлення requirements..."
+echo "📥 Installing Python packages..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-echo "📁 Завантаження моделей..."
-bash scripts/download_models.sh
+# echo "📁 Завантаження моделей..."
+# bash scripts/download_models.sh
 
-echo "✅ Установка завершена"
+echo "✅ Installation complete"
