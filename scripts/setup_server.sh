@@ -18,4 +18,3 @@ python scripts/download_weights.py
 
 # Запуск сервера
 python run.py
-
