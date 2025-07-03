@@ -167,3 +167,42 @@ POST /analyze/ з фото
 ✅ Критерії завершення
 - Все зібрано в одне
 - Пройдені інтеграційні тести test_full_pipeline.py
+
+
+## 📁 Структура проєкту NutriScan (v0.1)
+
+```
+nutriscan/
+├── app/                       # Основна логіка FastAPI
+│   ├── main.py               # Точка входу FastAPI
+│   ├── models/               # Класифікатор, детектор інгредієнтів
+│   │   └── classifier.py
+│   ├── services/             # Логіка по вагам, БЖУ, тощо
+│   │   └── nutrition.py
+│   ├── utils/                # Обробка зображень, допоміжне
+│   │   └── image_utils.py
+│   └── api/                  # Роути
+│       └── routes.py
+│
+├── tests/                    # Pytest тести на всі етапи
+│   ├── test_upload.py
+│   ├── test_classifier.py
+│   └── ...
+│
+├── models/                   # Ваги моделей (.pt, .bin тощо)
+│   ├── classifier.pt
+│   └── detector.pt
+│
+├── scripts/                  # Скрипти інсталяції/запуску
+│   ├── install.sh            # Встановлення залежностей, моделей
+│   ├── download_models.sh    # Завантаження ваг
+│   └── run_server.sh         # Запуск FastAPI
+│
+├── docs/                     # Документація
+│   ├── DEVLOG.md             # Dev-блог по етапах
+│   └── INSTALL.md            # Інструкція встановлення
+│
+├── .env                      # Змінні середовища (якщо потрібно)
+├── requirements.txt
+└── README.md
+```
