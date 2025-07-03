@@ -13,7 +13,7 @@
 * Посилання на модель:
 
   * EfficientNet-B0: [https://huggingface.co/dwililiya/food101-model-classification](https://huggingface.co/dwililiya/food101-model-classification)
-  * EfficientNet-B1: [https://huggingface.co/gabrielganan/efficientnet\_b1-food101(паста](https://huggingface.co/gabrielganan/efficientnet_b1-food101%28паста), піца, салат, суп тощо)
+  * EfficientNet-B1: [https://huggingface.co/gabrielganan/efficientnet\_b1-food101(паста](https://huggingface.co/gabrielganan/efficientnet_b1-food101)
 
 2.2 Розпізнавання інгредієнтів
 
