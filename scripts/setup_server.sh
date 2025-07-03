@@ -16,3 +16,6 @@ pip install -r requirements.txt
 # Завантаження ваг моделей
 python scripts/download_weights.py
 
+# Запуск сервера
+python run.py
+

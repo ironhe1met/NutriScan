@@ -57,18 +57,21 @@ class FoodInfoCache:
 
 def fetch_info(name: str) -> dict[str, Any] | None:
     params = {"search_terms": name, "page_size": 1, "fields": "nutriments"}
-    resp = requests.get(API_URL, params=params, timeout=10)
-    if resp.status_code == 200:
-        data = resp.json()
-        products = data.get("products")
-        if products:
-            nutriments = products[0].get("nutriments", {})
-            return {
-                "calories": nutriments.get("energy-kcal_100g"),
-                "proteins": nutriments.get("proteins_100g"),
-                "fats": nutriments.get("fat_100g"),
-                "carbs": nutriments.get("carbohydrates_100g"),
-            }
+    try:
+        resp = requests.get(API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+    except requests.RequestException:
+        return None
+    data = resp.json()
+    products = data.get("products")
+    if products:
+        nutriments = products[0].get("nutriments", {})
+        return {
+            "calories": nutriments.get("energy-kcal_100g"),
+            "proteins": nutriments.get("proteins_100g"),
+            "fats": nutriments.get("fat_100g"),
+            "carbs": nutriments.get("carbohydrates_100g"),
+        }
     return None
 
 
