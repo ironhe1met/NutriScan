@@ -206,3 +206,12 @@ nutriscan/
 ├── requirements.txt
 └── README.md
 ```
+
+📌 Команди на майбутнє
+
+| Дія        | Команда                            |
+| ---------- | ---------------------------------- |
+| Перезапуск | `sudo systemctl restart nutriscan` |
+| Стоп       | `sudo systemctl stop nutriscan`    |
+| Статус     | `sudo systemctl status nutriscan`  |
+| Логи       | `journalctl -u nutriscan -f`       |
