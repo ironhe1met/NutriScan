@@ -15,7 +15,7 @@ pip install -r requirements.txt
 
 echo "🚀 Перезапуск FastAPI-сервера..."
 # Якщо використовуєш systemd:
- systemctl restart nutricsan.service
+systemctl restart nutriscan
 
 # Або через скрипт:
 #bash scripts/run_server.sh
