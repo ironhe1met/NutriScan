@@ -3,3 +3,6 @@ uvicorn
 python-multipart
 pytest
 httpx
+torch
+torchvision
+Pillow
