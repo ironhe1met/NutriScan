@@ -7,7 +7,7 @@ cd NutriScan
 ```
 ## 2. Запуск інсталятора
 ```bash
-chmod +x scripts/install.sh
+chmod +x scripts/*.sh
 ./scripts/install.sh
 ```
 ## 3. Запуск сервера
