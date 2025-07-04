@@ -16,4 +16,28 @@ pip install -r requirements.txt
 echo "⬇️ Завантаження моделей..."
 bash scripts/download_models.sh
 
-echo "✅ Установка завершена"
+echo "✅ Модель готова."
+
+echo "🛠️ Створення systemd unit..."
+cat <<EOF | sudo tee /etc/systemd/system/nutriscan.service > /dev/null
+[Unit]
+Description=NutriScan FastAPI Server
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/NutriScan
+ExecStart=/opt/NutriScan/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "🔁 Перезапуск systemd..."
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable nutriscan
+sudo systemctl restart nutriscan
+
+echo "✅ Установка завершена. Сервер працює на http://<IP>:8000"
