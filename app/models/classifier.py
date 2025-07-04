@@ -1,26 +1,22 @@
 import torch
-from torchvision import transforms
+from torchvision import transforms, models
 from PIL import Image
 import json
-import os
 
 MODEL_PATH = "models/classifier.pth"
 LABELS_PATH = "app/assets/labels_food101.json"
 
 class FoodClassifier:
     def __init__(self):
-#        self.model = torch.load(MODEL_PATH, map_location="cpu")
-#        self.model.eval()
-        from efficientnet_pytorch import EfficientNet
+        self.model = models.efficientnet_b0(weights=None)
+        self.model.classifier[1] = torch.nn.Linear(self.model.classifier[1].in_features, 101)
 
-        self.model = EfficientNet.from_name('efficientnet-b0')
         state_dict = torch.load(MODEL_PATH, map_location="cpu")
         self.model.load_state_dict(state_dict)
         self.model.eval()
 
-
         with open(LABELS_PATH, "r") as f:
-            self.labels = json.load(f)
+            self.id2label = json.load(f)  # <== оновлено
 
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
@@ -38,12 +34,7 @@ class FoodClassifier:
             probs = torch.nn.functional.softmax(outputs[0], dim=0)
             confidence, predicted_idx = torch.max(probs, 0)
 
-#        return {
-#            "dish_name": self.labels[str(predicted_idx.item())],
-#            "confidence": round(confidence.item(), 4)
-#        }
-        id2label = [label for label, idx in sorted(self.labels.items(), key=lambda x: x[1])]
-        return {
-            "dish_name": id2label[predicted_idx.item()],
-            "confidence": round(confidence.item(), 4)
-        }
+            return {
+                "dish_name": self.id2label[str(predicted_idx.item())],  # <== оновлено
+                "confidence": round(confidence.item(), 4)
+            }
