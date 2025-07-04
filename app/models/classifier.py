@@ -4,7 +4,7 @@ from PIL import Image
 import json
 import os
 
-MODEL_PATH = "models/classifier.pt"
+MODEL_PATH = "models/classifier.pth"
 LABELS_PATH = "app/assets/labels_food101.json"
 
 class FoodClassifier:
