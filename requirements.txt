@@ -6,3 +6,4 @@ httpx
 torch
 torchvision
 Pillow
+efficientnet_pytorch
