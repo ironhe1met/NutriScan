@@ -1,33 +1,30 @@
-import cv2
+from ultralytics import YOLO
 import numpy as np
 
-# всередині класу IngredientDetector
-def estimate_weight(self, mask: np.ndarray) -> int:
-    """
-    Оцінити вагу в грамах на основі площі маски.
-    """
-    area = np.sum(mask == 1)
-    # коефіцієнт масштабування (підбирається емпірично, напр. 0.05 г за 1 піксель)
-    weight = int(area * 0.005)
-    return max(weight, 1)
+class IngredientDetector:
+    def __init__(self, model_path="models/yolov8x-seg.pt"):
+        self.model = YOLO(model_path)
 
-def detect(self, image_path: str) -> list:
-    results = self.model(image_path)
-    ingredients = []
+    def estimate_weight(self, mask: np.ndarray) -> int:
+        area = np.sum(mask == 1)
+        weight = int(area * 0.005)  # коефіцієнт підібрано емпірично
+        return max(weight, 1)
 
-    for result in results:
-        names = result.names
-        for i, seg in enumerate(result.masks.data):
-            cls_id = int(result.boxes.cls[i].item())
-            name = names[cls_id]
-            conf = float(result.boxes.conf[i].item())
-            mask = seg.cpu().numpy()
-            weight = self.estimate_weight(mask)
+    def detect(self, image_path):
+        results = self.model(image_path, conf=0.25)[0]
+        ingredients = []
+
+        for i, mask in enumerate(results.masks.data):
+            cls_id = int(results.boxes.cls[i].item())
+            name = results.names[cls_id]
+            conf = round(results.boxes.conf[i].item(), 4)
+            mask_np = mask.cpu().numpy()
+            weight = self.estimate_weight(mask_np)
 
             ingredients.append({
                 "name": name,
-                "confidence": round(conf, 4),
+                "confidence": conf,
                 "weight_g": weight
             })
 
-    return ingredients
+        return {"ingredients": ingredients}
