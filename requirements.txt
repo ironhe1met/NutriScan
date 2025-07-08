@@ -4,6 +4,5 @@ python-multipart
 pytest
 httpx
 torch
-torchvision
 Pillow
-efficientnet_pytorch
+ultralytics
