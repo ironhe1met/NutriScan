@@ -9,10 +9,14 @@ def test_detect_ingredients():
 
     result = detector.detect(image_path)
 
-    assert isinstance(result, list), "Результат має бути списком"
-    assert len(result) > 0, "Список інгредієнтів порожній"
+    assert isinstance(result, dict), "Результат має бути словником"
+    assert "ingredients" in result, "Ключ 'ingredients' відсутній"
+    ingredients = result["ingredients"]
 
-    for item in result:
+    assert isinstance(ingredients, list), "'ingredients' має бути списком"
+    assert len(ingredients) > 0, "Список інгредієнтів порожній"
+
+    for item in ingredients:
         assert "name" in item, "Інгредієнт не має поля 'name'"
         assert "confidence" in item, "Інгредієнт не має поля 'confidence'"
         assert isinstance(item["confidence"], float), "'confidence' має бути числом"
