@@ -1,31 +1,33 @@
-from ultralytics import YOLO
-import torch
 import cv2
+import numpy as np
 
-class IngredientDetector:
-    def __init__(self, model_path="models/yolov8x-seg.pt", weight_scaling_factor=0.05):
-        self.model = YOLO(model_path)
-        self.weight_scaling_factor = weight_scaling_factor  # коефіцієнт для розрахунку ваги
+# всередині класу IngredientDetector
+def estimate_weight(self, mask: np.ndarray) -> int:
+    """
+    Оцінити вагу в грамах на основі площі маски.
+    """
+    area = np.sum(mask == 1)
+    # коефіцієнт масштабування (підбирається емпірично, напр. 0.05 г за 1 піксель)
+    weight = int(area * 0.005)
+    return max(weight, 1)
 
-    def detect(self, image_path):
-        results = self.model(image_path, conf=0.25)[0]
-        ingredients = []
+def detect(self, image_path: str) -> list:
+    results = self.model(image_path)
+    ingredients = []
 
-        for box, mask in zip(results.boxes, results.masks.data):
-            cls_id = int(box.cls.item())
-            name = results.names[cls_id]
-            conf = round(box.conf.item(), 4)
-
-            # Обчислюємо площу маски (кількість пікселів == 1)
-            mask_area = torch.sum(mask).item()
-
-            # Оцінюємо вагу з урахуванням масштабу
-            weight_g = int(mask_area * self.weight_scaling_factor)
+    for result in results:
+        names = result.names
+        for i, seg in enumerate(result.masks.data):
+            cls_id = int(result.boxes.cls[i].item())
+            name = names[cls_id]
+            conf = float(result.boxes.conf[i].item())
+            mask = seg.cpu().numpy()
+            weight = self.estimate_weight(mask)
 
             ingredients.append({
                 "name": name,
-                "confidence": conf,
-                "weight_g": weight_g
+                "confidence": round(conf, 4),
+                "weight_g": weight
             })
 
-        return {"ingredients": ingredients}
+    return ingredients
