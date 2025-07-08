@@ -1,9 +1,18 @@
 from fastapi import APIRouter, UploadFile, File
-from app.utils.file_utils import save_image
+from fastapi.responses import JSONResponse
+from app.models.detector import IngredientDetector
+import shutil
+import tempfile
 
 router = APIRouter()
 
-@router.post("/upload/")
-async def upload_image(image: UploadFile = File(...)):
-    file_path = save_image(image)
-    return {"message": "Image received", "filename": file_path}
+detector = IngredientDetector("models/yolov8x-seg.pt")
+
+@router.post("/detect/")
+async def detect_ingredients(image: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        shutil.copyfileobj(image.file, tmp)
+        tmp_path = tmp.name
+
+    result = detector.detect(tmp_path)
+    return JSONResponse(content={"ingredients": result})
