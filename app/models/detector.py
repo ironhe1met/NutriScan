@@ -17,4 +17,7 @@ class IngredientDetector:
             ingredients.append({"name": name, "confidence": conf})
 
         return {"ingredients": ingredients}
+
+
+
         
