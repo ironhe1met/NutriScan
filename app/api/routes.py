@@ -15,4 +15,5 @@ async def detect_ingredients(image: UploadFile = File(...)):
         tmp_path = tmp.name
 
     result = detector.detect(tmp_path)
-    return JSONResponse(content={"ingredients": result})
+#    return JSONResponse(content={"ingredients": result})
+    return JSONResponse(content=result)
