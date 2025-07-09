@@ -6,3 +6,4 @@ httpx
 torch
 Pillow
 ultralytics
+requests
