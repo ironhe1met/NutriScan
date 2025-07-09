@@ -193,6 +193,7 @@ POST /analyze/ з фото
 ```
 curl -X POST -F image=@apple.jpg http://ip_server:8000/detect/
 ```
+Ця команда надсилає зображення apple.jpg до сервера FastAPI за endpoint /detect/ та отримує у відповідь JSON з інгредієнтами:
 
 * -X POST — вказує, що це POST-запит.
 
