@@ -1,84 +1,64 @@
-# app/services/nutrition.py
-
 import requests
-import sqlite3
-from typing import Dict, List
 
 class NutritionService:
-    def __init__(self, db_path="app/assets/nutrition_cache.db"):
-        self.conn = sqlite3.connect(db_path)
-        self.create_table()
+    def __init__(self):
+        self.api_url = "https://world.openfoodfacts.org/api/v2/product/"
 
-    def create_table(self):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS nutrition_cache (
-                name TEXT PRIMARY KEY,
-                calories REAL,
-                protein REAL,
-                fat REAL,
-                carbs REAL
-            )
-        """)
-        self.conn.commit()
+    def get_off_data(self, ingredient_name: str):
+        response = requests.get(
+            "https://world.openfoodfacts.org/cgi/search.pl",
+            params={
+                "search_terms": ingredient_name,
+                "search_simple": 1,
+                "action": "process",
+                "json": 1,
+                "page_size": 1,
+            },
+            timeout=5,
+        )
 
-    def fetch_from_off(self, name: str) -> Dict:
-        url = f"https://world.openfoodfacts.org/api/v0/product/{name}.json"
-        try:
-            r = requests.get(url, timeout=5)
-            data = r.json()
-            nutr = data.get("product", {}).get("nutriments", {})
-            return {
-                "calories": nutr.get("energy-kcal_100g", 0),
-                "protein": nutr.get("proteins_100g", 0),
-                "fat": nutr.get("fat_100g", 0),
-                "carbs": nutr.get("carbohydrates_100g", 0)
-            }
-        except Exception:
-            return {"calories": 0, "protein": 0, "fat": 0, "carbs": 0}
+        if response.status_code == 200:
+            products = response.json().get("products", [])
+            if products:
+                nutriments = products[0].get("nutriments", {})
+                return {
+                    "calories_kcal": round(nutriments.get("energy-kcal_100g", 0), 2),
+                    "protein_g": round(nutriments.get("proteins_100g", 0), 2),
+                    "fat_g": round(nutriments.get("fat_100g", 0), 2),
+                    "carbs_g": round(nutriments.get("carbohydrates_100g", 0), 2)
+                }
 
-    def get_nutrition(self, name: str) -> Dict:
-        cursor = self.conn.cursor()
-        row = cursor.execute("SELECT * FROM nutrition_cache WHERE name = ?", (name,)).fetchone()
+        return {
+            "calories_kcal": 0,
+            "protein_g": 0,
+            "fat_g": 0,
+            "carbs_g": 0
+        }
 
-        if row:
-            return dict(zip(["name", "calories", "protein", "fat", "carbs"], row))
-
-        data = self.fetch_from_off(name)
-        cursor.execute("""
-            INSERT OR REPLACE INTO nutrition_cache (name, calories, protein, fat, carbs)
-            VALUES (?, ?, ?, ?, ?)
-        """, (name, data["calories"], data["protein"], data["fat"], data["carbs"]))
-        self.conn.commit()
-
-        return {"name": name, **data}
-
-    def enrich_ingredients(self, ingredients: List[Dict]) -> Dict:
-        total = {"calories_kcal": 0, "protein_g": 0, "fat_g": 0, "carbs_g": 0}
+    def enrich_ingredients(self, ingredients: list):
         enriched = []
+        total = {"calories_kcal": 0, "protein_g": 0, "fat_g": 0, "carbs_g": 0}
 
         for item in ingredients:
-            info = self.get_nutrition(item["name"])
-            weight = item.get("weight_g", 100)
+            nutrition = self.get_off_data(item["name"])
+            weight = item["weight_g"] / 100.0
 
-            cals = round(info["calories"] * weight / 100, 1)
-            prot = round(info["protein"] * weight / 100, 1)
-            fat = round(info["fat"] * weight / 100, 1)
-            carbs = round(info["carbs"] * weight / 100, 1)
-
-            total["calories_kcal"] += cals
-            total["protein_g"] += prot
-            total["fat_g"] += fat
-            total["carbs_g"] += carbs
-
-            enriched.append({
+            enriched_item = {
                 "name": item["name"],
-                "weight_g": weight,
-                "calories_kcal": cals,
-                "protein_g": prot,
-                "fat_g": fat,
-                "carbs_g": carbs
-            })
+                "weight_g": item["weight_g"],
+                "calories_kcal": round(nutrition["calories_kcal"] * weight, 1),
+                "protein_g": round(nutrition["protein_g"] * weight, 2),
+                "fat_g": round(nutrition["fat_g"] * weight, 2),
+                "carbs_g": round(nutrition["carbs_g"] * weight, 2),
+            }
 
-        total = {k: round(v, 1) for k, v in total.items()}
+            total["calories_kcal"] += enriched_item["calories_kcal"]
+            total["protein_g"] += enriched_item["protein_g"]
+            total["fat_g"] += enriched_item["fat_g"]
+            total["carbs_g"] += enriched_item["carbs_g"]
+
+            enriched.append(enriched_item)
+
+        total = {k: round(v, 2) for k, v in total.items()}
+
         return {"ingredients": enriched, "total": total}
