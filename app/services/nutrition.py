@@ -1,6 +1,6 @@
 import requests
 
-DATA_SOURCE = "off"  # "off" або "usda"
+DATA_SOURCE = "usda"  # "off" або "usda"
 
 # 🔸 OFF
 OFF_URL = "https://world.openfoodfacts.org/cgi/search.pl"
