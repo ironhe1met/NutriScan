@@ -205,22 +205,8 @@ curl -X POST -F image=@apple.jpg http://ip_server:8000/detect/
 ```
 {
   "ingredients": [
-    {
-      "name": "potato",
-      "weight_g": 100,
-      "calories_kcal": 77,
-      "protein_g": 2,
-      "fat_g": 0.1,
-      "carbs_g": 17
-    },
-    {
-      "name": "carrot",
-      "weight_g": 50,
-      "calories_kcal": 20,
-      "protein_g": 0.5,
-      "fat_g": 0.1,
-      "carbs_g": 4.7
-    }
+    { "name": "potato", "weight_g": 100, "calories_kcal": 77, "protein_g": 2, "fat_g": 0.1, "carbs_g": 17 },
+    { "name": "carrot", "weight_g": 50, "calories_kcal": 20, "protein_g": 0.5, "fat_g": 0.1, "carbs_g": 4.7 }
   ],
   "total": {
     "calories_kcal": 97,
