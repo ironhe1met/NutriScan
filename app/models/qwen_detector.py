@@ -5,7 +5,12 @@ import json
 from pathlib import Path
 from PIL import Image
 import torch
-from transformers import AutoProcessor, AutoModelForConditionalGeneration
+from transformers import AutoProcessor
+# для старіших версій transformers fallback на AutoModelForSeq2SeqLM
+try:
+    from transformers import AutoModelForConditionalGeneration
+except ImportError:
+    from transformers import AutoModelForSeq2SeqLM as AutoModelForConditionalGeneration
 from qwen_vl_utils import process_vision_info   # ← новий імпорт
 
 class QwenFoodDetector:
