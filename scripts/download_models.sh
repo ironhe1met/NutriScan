@@ -25,4 +25,8 @@ wget -c -P models/qwen2.5-vl-7b-instruct \
 wget -c -P models/qwen2.5-vl-7b-instruct \
   https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct/resolve/main/vocab.json
 
+# Додатковий файл для ImageProcessor
+wget -c -P models/qwen2.5-vl-7b-instruct \
+  https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct/resolve/main/preprocessor_config.json
+
 echo "✅ Завантаження Qwen2.5-VL-7B-Instruct завершено"
