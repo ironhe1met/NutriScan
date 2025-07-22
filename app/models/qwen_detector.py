@@ -5,24 +5,24 @@ import json
 from pathlib import Path
 from PIL import Image
 import torch
-from transformers import AutoProcessor
-# для старіших версій transformers fallback на AutoModelForSeq2SeqLM
-try:
-    from transformers import AutoModelForConditionalGeneration
-except ImportError:
-    from transformers import AutoModelForSeq2SeqLM as AutoModelForConditionalGeneration
-from qwen_vl_utils import process_vision_info   # ← новий імпорт
+from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from qwen_vl_utils import process_vision_info
 
 class QwenFoodDetector:
     def __init__(self, model_dir: str):
+        """
+        Initialize the Qwen2.5-VL Food Detector.
+        :param model_dir: Path to the directory containing the model files and configs.
+        """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        # завантажуємо processor з trust_remote_code=True
+        # Load the processor with custom code support
         self.processor = AutoProcessor.from_pretrained(
             model_dir,
             trust_remote_code=True,
             use_fast=True
         )
-        self.model = AutoModelForConditionalGeneration.from_pretrained(
+        # Load the Qwen2.5-VL model optimized for CPU/GPU usage
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_dir,
             trust_remote_code=True,
             device_map="auto",
@@ -32,32 +32,40 @@ class QwenFoodDetector:
         self.model.eval()
 
     def detect(self, image_path: str) -> dict:
+        """
+        Detect foods and drinks in an image and return a JSON-like dict of detections.
+        :param image_path: Path to the input image file.
+        :return: Dict with key 'ingredients' mapping to a list of detections.
+        Each detection is a dict with 'bbox' and 'label'.
+        """
+        # Open and convert image to RGB
         img = Image.open(Path(image_path)).convert("RGB")
 
-        # 1) Формуємо “повідомлення” для chat-шаблону
-        prompt = "Detect foods and drinks in this image and output a JSON list of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+        # Prepare the prompt with an <image> token
+        prompt = (
+            "<image> Detect foods and drinks in this image and output a JSON list "
+            "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+        )
 
-        # 2) Підготовка векторів картинки
-        # process_vision_info повертає дві структури — images & videos
+        # Extract vision embeddings from the image
         vision_inputs, _ = process_vision_info([{"image": img}])
 
-        # 3) Формуємо текст за допомогою ChatTemplate
-        # метод apply_chat_template вмонтує в текст маркери для візуальної частини
-        text = self.processor.apply_chat_template(
+        # Build the model input text with embedded image markers
+        chat_text = self.processor.apply_chat_template(
             [{"role": "user", "image": img, "text": prompt}],
             add_generation_prompt=True,
             tokenize=False
         )
 
-        # 4) Токенізуємо вже готовий текст + підставляємо картинки
+        # Tokenize the combined text and vision inputs
         inputs = self.processor(
-            text=[text],
+            text=[chat_text],
             images=vision_inputs,
             return_tensors="pt",
             padding=True
         ).to(self.device)
 
-        # 5) Генеруємо відповідь
+        # Generate the model output
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
@@ -65,6 +73,7 @@ class QwenFoodDetector:
         )
         raw = self.processor.decode(outputs[0], skip_special_tokens=True)
 
+        # Parse JSON or return error if invalid
         try:
             detections = json.loads(raw)
         except json.JSONDecodeError:
