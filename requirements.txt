@@ -6,7 +6,7 @@ httpx
 torch
 torchvision
 Pillow
-transformers>=4.53.3
+git+https://github.com/huggingface/transformers.git@main#egg=transformers
 safetensors
 requests
 qwen-vl-utils[decord]==0.0.8
