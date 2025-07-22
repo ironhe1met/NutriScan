@@ -17,6 +17,7 @@ models/
 *.pt
 *.bin
 *.onnx
+!**/models/*.py
 
 # Uploaded/test images
 tests/*.jpg
