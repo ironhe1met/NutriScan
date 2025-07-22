@@ -4,6 +4,7 @@ python-multipart
 pytest
 httpx
 torch
+torchvision
 Pillow
 transformers>=4.53.3
 safetensors
