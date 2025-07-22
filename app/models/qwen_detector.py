@@ -1,7 +1,6 @@
 import io, json
 from PIL import Image
 import torch
-from transformers import AutoProcessor, QwenForConditionalGeneration
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 class QwenFoodDetector:
