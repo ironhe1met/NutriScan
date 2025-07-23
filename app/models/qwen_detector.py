@@ -11,19 +11,18 @@ class QwenFoodDetector:
     def __init__(self, model_dir: str):
         """
         Initialize the Qwen2.5-VL food detector.
-        :param model_dir: Path to the directory containing model files.
+        :param model_dir: directory containing model and processor artifacts.
         """
-        # Determine device
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Load processor with custom code support
+        # Load multimodal processor (handles text+image)
         self.processor = AutoProcessor.from_pretrained(
             model_dir,
             trust_remote_code=True,
             use_fast=True
         )
 
-        # Load Qwen2.5-VL model optimized for CPU/GPU
+        # Load Qwen2.5-VL model
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_dir,
             trust_remote_code=True,
@@ -35,58 +34,65 @@ class QwenFoodDetector:
 
     def detect(self, image_path: str) -> dict:
         """
-        Run detection on the given image and return ingredients list.
-        :param image_path: Local path to the image file.
-        :return: Dict with key 'ingredients' mapping to list of detections.
-                 Each detection has 'bbox' and 'name'.
+        Detect foods and drinks in an image and return ingredient detections.
+        :param image_path: path to input image file
+        :return: {'ingredients': [ {'bbox': [...], 'name': '...'}, ... ]}
         """
-        # Load and prepare image
+        # Load image
         img = Image.open(Path(image_path)).convert("RGB")
 
-        # Define prompt for model, using <image> placeholder
+        # Prompt template with <image> marker
         prompt = (
             "<image> Detect foods and drinks in this image and output a JSON list "
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-        # Build conversation for vision processing
-        conversation = [{
-            "role": "user",
-            "content": prompt,
-            "image": img
-        }]
+        # Prepare conversation for vision processing
+        conversation = [{"role": "user", "content": prompt, "image": img}]
 
-        # Process vision info and augment conversation
-        vision_inputs, processed_conversation = process_vision_info(conversation)
+        # Try using qwen_vl_utils to get fine-grained vision tokens
+        try:
+            vision_inputs, processed_conv = process_vision_info(conversation)
+            # Fallback if processed_conv is None
+            if not processed_conv:
+                processed_conv = conversation
+            # Extract content texts
+            text_inputs = [msg.get("content", prompt) for msg in processed_conv]
+            # Tokenize multimodal inputs
+            inputs = self.processor(
+                text=text_inputs,
+                images=vision_inputs,
+                return_tensors="pt",
+                padding=True
+            )
+        except Exception:
+            # Fallback: use AutoProcessor directly on image+text
+            inputs = self.processor(
+                text=[prompt],
+                images=img,
+                return_tensors="pt",
+                padding=True
+            )
 
-        # Extract text messages from processed conversation
-        text_inputs = [msg["content"] for msg in processed_conversation]
+        # Move to device
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        # Tokenize text + vision inputs
-        inputs = self.processor(
-            text=text_inputs,
-            images=vision_inputs,
-            return_tensors="pt",
-            padding=True
-        ).to(self.device)
-
-        # Perform generation
+        # Generate output
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
             do_sample=False
         )
 
-        # Decode output and parse JSON
+        # Decode and parse
         raw = self.processor.decode(outputs[0], skip_special_tokens=True)
         try:
             detections = json.loads(raw)
         except json.JSONDecodeError:
             detections = [{"error": raw}]
 
-        # Rename 'label' to 'name' for compatibility
+        # Normalize key 'label' to 'name'
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
-
         return {"ingredients": detections}
