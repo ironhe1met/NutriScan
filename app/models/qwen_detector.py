@@ -38,20 +38,25 @@ class QwenFoodDetector:
         """
         # load image
         img = Image.open(Path(image_path)).convert("RGB")
-        # define prompt with <image> token placeholder
+        # define prompt
         prompt = (
-            "<image> Detect foods and drinks in this image and return a JSON list "
-            "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+            'Detect foods and drinks in this image and return a JSON list '
+            'of {"bbox": [x1,y1,x2,y2], "label": "..."}'
         )
-        # build multimodal conversation
-        conversation = [{"role": "user", "text": prompt, "image": img}]
-        # tokenize conversation (handles text+image jointly)
+        # process vision: inject image tokens and prepare image features
+        vision_inputs, processed_conversation = process_vision_info([
+            {"image": img, "content": prompt}
+        ])
+        # extract text inputs with <image> markers from processed conversation
+        text_inputs = [msg["content"] for msg in processed_conversation]
+        # tokenize multimodal inputs
         inputs = self.processor(
-            conversation,
+            text=text_inputs,
+            images=vision_inputs,
             return_tensors="pt",
             padding=True
         )
-        # move tensors to device
+        # move to device
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         # generate outputs
         outputs = self.model.generate(
@@ -66,11 +71,11 @@ class QwenFoodDetector:
             detections = json.loads(raw)
         except json.JSONDecodeError:
             detections = [{"error": raw}]
-        # normalize key: label -> name
+        # normalize label->name
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
-        return {"ingredients": detections}
+        return {"ingredients": detections}"ingredients": detections}
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
         """
