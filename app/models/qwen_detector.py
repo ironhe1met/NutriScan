@@ -28,12 +28,18 @@ class QwenFoodDetector:
             low_cpu_mem_usage=True,
             torch_dtype="auto"
         )
+        # Apply dynamic quantization to reduce memory and speed up inference on CPU
+        self.model = torch.quantization.quantize_dynamic(
+            self.model,
+            {torch.nn.Linear},
+            dtype=torch.qint8
+        )
         self.model.eval()
 
     def detect(self, image_path: str) -> dict:
         """
         Detect foods and drinks in the image located at image_path.
-        Returns a dict: {'ingredients': [ { 'bbox': [...], 'label': '...' }, ... ] }
+        Returns a dict: {'ingredients': [ { 'bbox': [...], 'name': '...' }, ... ] }
         """
         # Load and convert image
         img = Image.open(Path(image_path)).convert("RGB")
@@ -50,7 +56,6 @@ class QwenFoodDetector:
         ]
 
         # Process vision information and get updated conversation
-        vision_inputs, processed_conversation = process_vision_info(conversation)
         vision_inputs, processed_conversation = process_vision_info(conversation)
 
         # Build text inputs list, handling both possible keys
@@ -80,7 +85,7 @@ class QwenFoodDetector:
             detections = json.loads(raw)
         except json.JSONDecodeError:
             detections = [{"error": raw}]
-        # remap label key to name for NutritionService compatibility
+        # Remap label key to name for NutritionService compatibility
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
