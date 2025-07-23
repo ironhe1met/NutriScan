@@ -80,4 +80,8 @@ class QwenFoodDetector:
             detections = json.loads(raw)
         except json.JSONDecodeError:
             detections = [{"error": raw}]
+        # remap label key to name for NutritionService compatibility
+        for det in detections:
+            if "label" in det and "name" not in det:
+                det["name"] = det.pop("label")
         return {"ingredients": detections}
