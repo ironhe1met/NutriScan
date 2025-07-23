@@ -40,36 +40,40 @@ class QwenFoodDetector:
                  where each detection has 'bbox' and 'name'.
         """
         img = Image.open(Path(image_path)).convert("RGB")
-        # Define prompt without <image> tag: text assigned to processor
-        prompt = "Detect foods and drinks in this image and output a JSON list of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
 
-        # Apply chat template to integrate image tokens into prompt
+        # Prompt for multimodal detection
+        prompt = (
+            "<image> Detect foods and drinks in this image and output a JSON list "
+            "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+        )
+
+        # Apply chat template to integrate image marker
         chat_text = self.processor.apply_chat_template(
             [{"role": "user", "image": img, "text": prompt}],
             add_generation_prompt=True,
             tokenize=False
         )
 
-        # Process vision to get vision embeddings
+        # Process vision info
         vision_inputs, _ = process_vision_info([{"image": img}])
 
-        # Tokenize combined inputs
+        # Tokenize multimodal inputs
         inputs = self.processor(
             text=[chat_text],
             images=vision_inputs,
             return_tensors="pt",
             padding=True
         )
-
-        # Run generation
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        # Generate detections
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
             do_sample=False
         )
 
-        # Decode and parse
+        # Decode and parse JSON
         raw = self.processor.decode(outputs[0], skip_special_tokens=True)
         try:
             detections = json.loads(raw)
@@ -81,9 +85,6 @@ class QwenFoodDetector:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
         return {"ingredients": detections}
-
-    def query(self, text: str, max_new_tokens: int = 128) -> str:
-"ingredients": detections
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
         """
