@@ -48,18 +48,14 @@ class QwenFoodDetector:
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-        # Process vision inputs
-        vision_inputs, _ = process_vision_info([
-            {"role": "user", "content": prompt, "image": img}
-        ])
-
-        # Tokenize multimodal inputs
+        # Tokenize multimodal inputs directly
         inputs = self.processor(
-            text=[prompt],
-            images=vision_inputs,
+            text=prompt,
+            images=img,
             return_tensors="pt",
             padding=True
         )
+        # Move tensors to device
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # Generate detections
@@ -80,8 +76,7 @@ class QwenFoodDetector:
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
-
-        return {"ingredients": detections}
+        return {"ingredients": detections}"ingredients": detections}
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
         """
