@@ -52,9 +52,11 @@ class QwenFoodDetector:
         # Process vision information and update conversation for text
         vision_inputs, processed_conversation = process_vision_info(conversation)
 
+        # Extract only text content for tokenizer
+        text_inputs = [msg["content"] for msg in processed_conversation]
         # Tokenize text+vision inputs together
         inputs = self.processor(
-            text=processed_conversation,
+            text=text_inputs,
             images=vision_inputs,
             return_tensors="pt",
             padding=True
