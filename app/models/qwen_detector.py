@@ -42,10 +42,10 @@ class QwenFoodDetector:
         # Load and prepare image
         img = Image.open(Path(image_path)).convert("RGB")
 
-        # Prompt for detection; include <image> token placeholder
+                # Prompt for detection; include <image> token placeholder
         prompt = (
-            "<image> Detect foods and drinks in this image and "
-            "return a JSON list of {\\"bbox\\": [x1,y1,x2,y2], \\\"label\\\": \\\"...\\\"}"
+            '<image> Detect foods and drinks in this image and '
+            'return a JSON list of {"bbox": [x1,y1,x2,y2], "label": "..."}'
         )
 
         # Build conversation with image and text
