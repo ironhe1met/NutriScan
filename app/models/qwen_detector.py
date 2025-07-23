@@ -5,6 +5,7 @@ from pathlib import Path
 from PIL import Image
 import torch
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from qwen_vl_utils import process_vision_info
 
 class QwenFoodDetector:
     def __init__(self, model_dir: str):
