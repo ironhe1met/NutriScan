@@ -103,10 +103,10 @@ if __name__ == "__main__":
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--image", type=str, help="Path to image file for detection")
     group.add_argument("--text", type=str, help="Text prompt for text-only query")
-    parser.add_argument(
+        parser.add_argument(
         "--model_dir", type=str,
-        default="models/qwen2.5-vl-food-detect",
-        help="Local directory of the Food Detect model"
+        default="models/qwen2.5-vl-7b-instruct",
+        help="Local directory of the Qwen2.5-VL-Instruct model"
     )
     args = parser.parse_args()
     detector = QwenFoodDetector(args.model_dir)
