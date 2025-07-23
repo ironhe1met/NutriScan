@@ -47,15 +47,10 @@ class QwenFoodDetector:
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-        # Apply chat template to integrate image marker
-        chat_text = self.processor.apply_chat_template(
-            [{"role": "user", "image": img, "text": prompt}],
-            add_generation_prompt=True,
-            tokenize=False
-        )
-
-        # Process vision info
-        vision_inputs, _ = process_vision_info([{"image": img}])
+                # Prepare vision-enhanced inputs (no chat template needed)
+        # process_vision_info adds necessary vision tokens
+        vision_inputs, _ = process_vision_info([{"role": "user", "content": prompt, "image": img}])
+([{"image": img}])
 
         # Tokenize multimodal inputs
         inputs = self.processor(
