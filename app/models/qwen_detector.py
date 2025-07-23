@@ -5,7 +5,6 @@ from pathlib import Path
 from PIL import Image
 import torch
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
-from qwen_vl_utils import process_vision_info
 
 class QwenFoodDetector:
     def __init__(self, model_dir: str):
@@ -13,16 +12,17 @@ class QwenFoodDetector:
         Initialize the Qwen2.5-VL food detector and text query model.
         :param model_dir: Path to the directory containing model artifacts.
         """
+        # Choose device
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Load multimodal processor (handles text+image inputs)
+        # Load processor that supports multimodal inputs
         self.processor = AutoProcessor.from_pretrained(
             model_dir,
             trust_remote_code=True,
             use_fast=True
         )
 
-        # Load Qwen2.5-VL model for conditional generation
+        # Load the multimodal Qwen model
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_dir,
             trust_remote_code=True,
@@ -42,23 +42,25 @@ class QwenFoodDetector:
         # Load and prepare image
         img = Image.open(Path(image_path)).convert("RGB")
 
-        # Prompt for multimodal detection
+        # Prompt for detection; include <image> token placeholder
         prompt = (
-            "<image> Detect foods and drinks in this image and output a JSON list "
-            "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+            "<image> Detect foods and drinks in this image and "
+            "return a JSON list of {\\"bbox\\": [x1,y1,x2,y2], \\\"label\\\": \\\"...\\\"}"
         )
 
-        # Tokenize multimodal inputs directly
+        # Build conversation with image and text
+        conversation = [{"role": "user", "text": prompt, "image": img}]
+
+        # Tokenize multimodal conversation
         inputs = self.processor(
-            text=prompt,
-            images=img,
+            conversation,
             return_tensors="pt",
             padding=True
         )
-        # Move tensors to device
+        # Move inputs to device
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        # Generate detections
+        # Generate output tokens
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
@@ -72,7 +74,7 @@ class QwenFoodDetector:
         except json.JSONDecodeError:
             detections = [{"error": raw}]
 
-        # Normalize label->name key
+        # Rename 'label' to 'name' for NutritionService
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
@@ -85,20 +87,24 @@ class QwenFoodDetector:
         :param max_new_tokens: Maximum tokens to generate.
         :return: Generated text response from the model.
         """
-        # Tokenize text inputs
+        # Build text-only conversation
+        conversation = [{"role": "user", "text": text}]
+
+        # Tokenize text conversation
         inputs = self.processor(
-            text=text,
+            conversation,
             return_tensors="pt",
             padding=True
         )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        # Generate text response
+        # Generate response
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=False
         )
+        # Decode and return
         return self.processor.decode(outputs[0], skip_special_tokens=True)
 
 
