@@ -10,8 +10,8 @@ from qwen_vl_utils import process_vision_info
 class QwenFoodDetector:
     def __init__(self, model_dir: str):
         """
-        Initialize Qwen2.5-VL Food Detect model from local files.
-        :param model_dir: Local directory containing the fine-tuned Food Detect model.
+        Initialize Qwen2.5-VL model from local files.
+        :param model_dir: Local directory containing the model files.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -38,7 +38,10 @@ class QwenFoodDetector:
         :param image_path: Path to the input image file.
         :return: {'ingredients': [ {'bbox': [...], 'name': '...'}, ... ]}
         """
+        # Load image
         img = Image.open(Path(image_path)).convert("RGB")
+
+        # Prepare prompt with image placeholder
         prompt = (
             '<image> Detect foods and drinks in this image and return '
             'a JSON list of {"bbox": [x1,y1,x2,y2], "label": "..."}'
@@ -48,12 +51,11 @@ class QwenFoodDetector:
         vision_inputs, processed_conv = process_vision_info([
             {"role": "user", "content": prompt, "image": img}
         ])
-        # Fallback if processing returns None
         if processed_conv is None:
             processed_conv = [{"content": prompt}]
         text_inputs = [msg.get("content", prompt) for msg in processed_conv]
 
-        # Tokenize multimodal inputs locally
+        # Tokenize multimodal inputs
         inputs = self.processor(
             text=text_inputs,
             images=vision_inputs,
@@ -62,6 +64,7 @@ class QwenFoodDetector:
         )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
+        # Generate output tokens
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
@@ -69,11 +72,13 @@ class QwenFoodDetector:
         )
         raw = self.processor.decode(outputs[0], skip_special_tokens=True)
 
+        # Parse JSON or return error
         try:
             detections = json.loads(raw)
         except json.JSONDecodeError:
             detections = [{"error": raw}]
 
+        # Normalize label->name field
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
@@ -99,11 +104,17 @@ class QwenFoodDetector:
 
 if __name__ == "__main__":
     import argparse, json
-    parser = argparse.ArgumentParser(description="Qwen2.5-VL Food Detect CLI")
+    parser = argparse.ArgumentParser(description="Qwen2.5-VL Food Detector CLI")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--image", type=str, help="Path to image file for detection")
-    group.add_argument("--text", type=str, help="Text prompt for text-only query")
-        parser.add_argument(
+    group.add_argument(
+        "--image", type=str,
+        help="Path to image file for detection"
+    )
+    group.add_argument(
+        "--text", type=str,
+        help="Text prompt for text-only query"
+    )
+    parser.add_argument(
         "--model_dir", type=str,
         default="models/qwen2.5-vl-7b-instruct",
         help="Local directory of the Qwen2.5-VL-Instruct model"
