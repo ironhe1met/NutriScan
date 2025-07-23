@@ -83,7 +83,7 @@ class QwenFoodDetector:
         return {"ingredients": detections}
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
-"ingredients": detections}
+"ingredients": detections
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
         """
