@@ -39,6 +39,7 @@ class QwenFoodDetector:
         :return: Dict with key 'ingredients' mapping to a list of detections
                  where each detection has 'bbox' and 'name'.
         """
+        # Load and prepare image
         img = Image.open(Path(image_path)).convert("RGB")
 
         # Prompt for multimodal detection
@@ -47,14 +48,14 @@ class QwenFoodDetector:
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-                # Prepare vision-enhanced inputs (no chat template needed)
-        # process_vision_info adds necessary vision tokens
-        vision_inputs, _ = process_vision_info([{"role": "user", "content": prompt, "image": img}])
-([{"image": img}])
+        # Process vision inputs
+        vision_inputs, _ = process_vision_info([
+            {"role": "user", "content": prompt, "image": img}
+        ])
 
         # Tokenize multimodal inputs
         inputs = self.processor(
-            text=[chat_text],
+            text=[prompt],
             images=vision_inputs,
             return_tensors="pt",
             padding=True
@@ -75,10 +76,11 @@ class QwenFoodDetector:
         except json.JSONDecodeError:
             detections = [{"error": raw}]
 
-        # Normalize label->name
+        # Normalize label->name key
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
+
         return {"ingredients": detections}
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
@@ -88,12 +90,15 @@ class QwenFoodDetector:
         :param max_new_tokens: Maximum tokens to generate.
         :return: Generated text response from the model.
         """
+        # Tokenize text inputs
         inputs = self.processor(
             text=text,
             return_tensors="pt",
             padding=True
         )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        # Generate text response
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
