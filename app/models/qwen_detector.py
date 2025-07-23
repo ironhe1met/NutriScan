@@ -40,57 +40,50 @@ class QwenFoodDetector:
                  where each detection has 'bbox' and 'name'.
         """
         img = Image.open(Path(image_path)).convert("RGB")
-        prompt = (
-            "<image> Detect foods and drinks in this image and output a JSON list "
-            "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+        # Define prompt without <image> tag: text assigned to processor
+        prompt = "Detect foods and drinks in this image and output a JSON list of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
+
+        # Apply chat template to integrate image tokens into prompt
+        chat_text = self.processor.apply_chat_template(
+            [{"role": "user", "image": img, "text": prompt}],
+            add_generation_prompt=True,
+            tokenize=False
         )
 
-        # Prepare conversation for vision processing
-        conversation = [{"role": "user", "content": prompt, "image": img}]
+        # Process vision to get vision embeddings
+        vision_inputs, _ = process_vision_info([{"image": img}])
 
-        # Attempt to use qwen_vl_utils for rich vision tokens
-        try:
-            vision_inputs, processed_conv = process_vision_info(conversation)
-            if not processed_conv:
-                processed_conv = conversation
-            text_inputs = [msg.get("content", prompt) for msg in processed_conv]
-            inputs = self.processor(
-                text=text_inputs,
-                images=vision_inputs,
-                return_tensors="pt",
-                padding=True
-            )
-        except Exception:
-            # Fallback to simple processor call
-            inputs = self.processor(
-                text=[prompt],
-                images=img,
-                return_tensors="pt",
-                padding=True
-            )
+        # Tokenize combined inputs
+        inputs = self.processor(
+            text=[chat_text],
+            images=vision_inputs,
+            return_tensors="pt",
+            padding=True
+        )
 
-        # Move tensors to device
+        # Run generation
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        # Generate outputs
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
             do_sample=False
         )
-        # Decode to string
-        raw = self.processor.decode(outputs[0], skip_special_tokens=True)
 
-        # Parse JSON
+        # Decode and parse
+        raw = self.processor.decode(outputs[0], skip_special_tokens=True)
         try:
             detections = json.loads(raw)
         except json.JSONDecodeError:
             detections = [{"error": raw}]
 
-        # Normalize label->name for compatibility
+        # Normalize label->name
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
         return {"ingredients": detections}
+
+    def query(self, text: str, max_new_tokens: int = 128) -> str:
+"ingredients": detections}
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
         """
