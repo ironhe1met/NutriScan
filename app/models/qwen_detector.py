@@ -44,16 +44,20 @@ class QwenFoodDetector:
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-        # Build the conversation list for qwen_vl_utils
+        # Build the conversation list with 'text' key for qwen_vl_utils
         conversation = [
-            {"role": "user", "content": prompt, "image": img}
+            {"role": "user", "text": prompt, "image": img}
         ]
 
-        # Process vision information and update conversation for text
+        # Process vision information and get updated conversation
         vision_inputs, processed_conversation = process_vision_info(conversation)
 
-        # Extract only text content for tokenizer
-        text_inputs = [msg["content"] for msg in processed_conversation]
+        # Build text inputs list, handling both possible keys
+        text_inputs = [msg.get("text") or msg.get("content") for msg in processed_conversation or []]
+        if not text_inputs:
+            # fallback to single prompt if processing failed
+            text_inputs = [prompt]
+
         # Tokenize text+vision inputs together
         inputs = self.processor(
             text=text_inputs,
