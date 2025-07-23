@@ -28,12 +28,13 @@ class QwenFoodDetector:
             low_cpu_mem_usage=True,
             torch_dtype="auto"
         )
-        # Apply dynamic quantization to reduce memory and speed up inference on CPU
-        self.model = torch.quantization.quantize_dynamic(
-            self.model,
-            {torch.nn.Linear},
-            dtype=torch.qint8
-        )
+                # (Optional) dynamic quantization can be enabled if supported by your environment
+        # Note: dynamic quantization may cause runtime errors for certain modules.
+        # self.model = torch.quantization.quantize_dynamic(
+        #     self.model,
+        #     {torch.nn.Linear},
+        #     dtype=torch.qint8
+        # )
         self.model.eval()
 
     def detect(self, image_path: str) -> dict:
