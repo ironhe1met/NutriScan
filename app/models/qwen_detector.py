@@ -76,7 +76,7 @@ class QwenFoodDetector:
         for det in detections:
             if "label" in det and "name" not in det:
                 det["name"] = det.pop("label")
-        return {"ingredients": detections}"ingredients": detections}
+        return {"ingredients": detections}
 
     def query(self, text: str, max_new_tokens: int = 128) -> str:
         """
