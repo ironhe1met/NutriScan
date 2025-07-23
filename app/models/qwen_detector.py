@@ -1,6 +1,5 @@
 # app/models/qwen_detector.py
 
-import io
 import json
 from pathlib import Path
 from PIL import Image
@@ -11,17 +10,17 @@ from qwen_vl_utils import process_vision_info
 class QwenFoodDetector:
     def __init__(self, model_dir: str):
         """
-        Initialize the Qwen2.5-VL Food Detector.
-        :param model_dir: Path to the directory containing the model files and configs.
+        Qwen2.5-VL based food detector initialization.
+        :param model_dir: directory path where model artifacts are stored.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        # Load the processor with custom code support
+        # Load the custom processor that handles image + text inputs
         self.processor = AutoProcessor.from_pretrained(
             model_dir,
             trust_remote_code=True,
             use_fast=True
         )
-        # Load the Qwen2.5-VL model optimized for CPU/GPU usage
+        # Load the Qwen2.5-VL model for conditional generation
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_dir,
             trust_remote_code=True,
@@ -33,47 +32,43 @@ class QwenFoodDetector:
 
     def detect(self, image_path: str) -> dict:
         """
-        Detect foods and drinks in an image and return a JSON-like dict of detections.
-        :param image_path: Path to the input image file.
-        :return: Dict with key 'ingredients' mapping to a list of detections.
-        Each detection is a dict with 'bbox' and 'label'.
+        Detect foods and drinks in the image located at image_path.
+        Returns a dict: {'ingredients': [ { 'bbox': [...], 'label': '...' }, ... ] }
         """
-        # Open and convert image to RGB
+        # Load and convert image
         img = Image.open(Path(image_path)).convert("RGB")
 
-        # Prepare the prompt with an <image> token
+        # Define the prompt with the <image> token placeholder
         prompt = (
             "<image> Detect foods and drinks in this image and output a JSON list "
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-        # Extract vision embeddings from the image
-        vision_inputs, _ = process_vision_info([{"image": img}])
+        # Build the conversation list for qwen_vl_utils
+        conversation = [
+            {"role": "user", "content": prompt, "image": img}
+        ]
 
-        # Build the model input text with embedded image markers
-        chat_text = self.processor.apply_chat_template(
-            [{"role": "user", "image": img, "text": prompt}],
-            add_generation_prompt=True,
-            tokenize=False
-        )
+        # Process vision information and update conversation for text
+        vision_inputs, processed_conversation = process_vision_info(conversation)
 
-        # Tokenize the combined text and vision inputs
+        # Tokenize text+vision inputs together
         inputs = self.processor(
-            text=[chat_text],
+            text=processed_conversation,
             images=vision_inputs,
             return_tensors="pt",
             padding=True
         ).to(self.device)
 
-        # Generate the model output
+        # Generate model output
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=512,
             do_sample=False
         )
-        raw = self.processor.decode(outputs[0], skip_special_tokens=True)
 
-        # Parse JSON or return error if invalid
+        # Decode to string and parse JSON
+        raw = self.processor.decode(outputs[0], skip_special_tokens=True)
         try:
             detections = json.loads(raw)
         except json.JSONDecodeError:
