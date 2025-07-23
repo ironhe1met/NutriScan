@@ -44,12 +44,13 @@ class QwenFoodDetector:
             "of {\"bbox\": [x1,y1,x2,y2], \"label\": \"...\"}"
         )
 
-        # Build the conversation list with 'text' key for qwen_vl_utils
+        # Build the conversation list with 'content' key for qwen_vl_utils
         conversation = [
-            {"role": "user", "text": prompt, "image": img}
+            {"role": "user", "content": prompt, "image": img}
         ]
 
         # Process vision information and get updated conversation
+        vision_inputs, processed_conversation = process_vision_info(conversation)
         vision_inputs, processed_conversation = process_vision_info(conversation)
 
         # Build text inputs list, handling both possible keys
