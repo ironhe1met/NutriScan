@@ -39,12 +39,13 @@ class QwenFoodDetector:
         """
         # load image
         img = Image.open(Path(image_path)).convert("RGB")
-        # define prompt
+                # define prompt with <image> placeholder
         prompt = (
-            'Detect foods and drinks in this image and return a JSON list '
+            '<image> Detect foods and drinks in this image and return a JSON list '
             'of {"bbox": [x1,y1,x2,y2], "label": "..."}'
         )
         # process vision: inject image tokens and prepare image features
+ inject image tokens and prepare image features
         vision_inputs, processed_conversation = process_vision_info([
             {"image": img, "content": prompt}
         ])
