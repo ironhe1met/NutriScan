@@ -213,3 +213,9 @@ POST /analyze/ з image
 ```bash
 curl -X POST -F image=@dish.jpg http://localhost:8000/analyze/
 ```
+
+---
+
+## 📄 Ліцензія
+
+Цей проєкт поширюється під ліцензією MIT.

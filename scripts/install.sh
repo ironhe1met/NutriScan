@@ -37,3 +37,4 @@ sudo systemctl enable nutriscan
 sudo systemctl restart nutriscan
 
 echo "✅ Установка завершена. Сервер працює на http://<IP>:8000"
+

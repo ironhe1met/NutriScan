@@ -20,4 +20,3 @@ async def test_analyze_image_base64(monkeypatch):
     with patch('urllib.request.urlopen', return_value=mock):
         result = analyze_image_base64(dummy_base64)
     assert result == {"raw_response": "sample"}
-
