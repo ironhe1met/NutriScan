@@ -33,6 +33,9 @@ async def handle_photo(msg: Message):
     async with httpx.AsyncClient() as client:
         resp = await client.post(API_URL, json={"image_base64": image_b64})
 
+    print("Response status:", response.status_code)
+    print("Response text:", response.text)
+
     if resp.status_code != 200:
         await msg.answer("⚠️ Не вдалося обробити зображення.")
         return
