@@ -36,8 +36,10 @@ async def handle_photo(msg: Message):
         "image": ("image.jpg", image_stream, "image/jpeg")
     }
 
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(60.0)  # або 120.0 сек при потребі
+    async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(API_URL, files=files)
+
 
     print("Response status:", resp.status_code)
     print("Response text:", resp.text)
