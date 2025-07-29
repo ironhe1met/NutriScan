@@ -1,7 +1,2 @@
 fastapi
-uvicorn
-python-multipart
-accelerate
-pytest
-httpx
-pytest-asyncio
+uvicorn[standard]

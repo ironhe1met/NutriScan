@@ -5,7 +5,7 @@ echo "🔧 Встановлення системних залежностей...
 sudo apt update
 sudo apt install -y python3.10 python3.10-venv python3-pip git wget libgl1
 
-echo "📦 Створення Python-середовища..."
+echo "📆 Створення Python-середовища..."
 python3.10 -m venv venv
 source venv/bin/activate
 
@@ -37,4 +37,3 @@ sudo systemctl enable nutriscan
 sudo systemctl restart nutriscan
 
 echo "✅ Установка завершена. Сервер працює на http://<IP>:8000"
-
