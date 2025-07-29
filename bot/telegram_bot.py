@@ -51,7 +51,13 @@ async def handle_photo(msg: Message):
     result = resp.json()
     print("📦 RAW API result:", result)
 
-    reply = format_response(result["data"]) if result.get("data") else "⚠️ Не вдалося визначити інгредієнти."
+    data = result.get("data")
+
+    if isinstance(data, dict) and "ingredients" in data:
+        reply = format_response(data)
+    else:
+        reply = "⚠️ Не вдалося визначити інгредієнти."
+
     await msg.answer(reply, parse_mode=ParseMode.MARKDOWN)
 
 async def main():
