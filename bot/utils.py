@@ -7,18 +7,9 @@ def format_response(result: dict) -> str:
     if error:
         return "⚠️ Не вдалося обробити зображення."
 
+    # Виправлено: отримуємо ingredients і total з вкладеного data
     ingredients = data.get("ingredients", [])
     total = data.get("total", {})
-
-    # 👇 Додаткова перевірка, якщо дані вкладені в raw_response
-    if not ingredients and "raw_response" in data:
-        try:
-            raw = data["raw_response"].strip().removeprefix("```json").removesuffix("```").strip()
-            data = json.loads(raw)
-            ingredients = data.get("ingredients", [])
-            total = data.get("total", {})
-        except Exception:
-            return "⚠️ Не вдалося розпізнати відповідь GPT."
 
     if not ingredients:
         return "⚠️ Не вдалося визначити інгредієнти."
