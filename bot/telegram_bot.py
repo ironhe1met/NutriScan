@@ -9,7 +9,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import CommandStart
 import asyncio
-from .utils import format_response
+from bot.utils import format_response
 
 load_dotenv()
 API_TOKEN = os.getenv("BOT_TOKEN")
