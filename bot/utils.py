@@ -7,7 +7,7 @@ def format_response(result: dict) -> str:
     if error:
         return "⚠️ Не вдалося обробити зображення."
 
-    # 🔄 Якщо є raw_response, спробуй розпарсити вручну
+    # 🧪 Якщо API повернув raw_response
     if "ingredients" not in data and "raw_response" in data:
         raw = data["raw_response"]
         try:
@@ -27,8 +27,10 @@ def format_response(result: dict) -> str:
         return "⚠️ Не вдалося визначити інгредієнти."
 
     lines = ["🍽 *Інгредієнти:*"]
-    for item in ingredients:
-        lines.append(f"• {item['name']} — {item['weight_g']} г")
+    for ing in ingredients:
+        name = ing.get("name", "Невідомо")
+        weight = ing.get("weight_g", "?")
+        lines.append(f"• {name} — {weight} г")
 
     lines.append(
         f"\n📊 *Разом:* {total.get('calories_kcal', 0)} ккал "
