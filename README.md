@@ -163,9 +163,32 @@ POST /analyze/ з image
 
 ```json
 {
-  "ingredients": [...],
-  "total": {...}
+  "ingredients": [
+    {
+      "name": "apple",
+      "weight_g": 150,
+      "calories_kcal": 78,
+      "protein_g": 0.4,
+      "fat_g": 0.3,
+      "carbs_g": 20
+    },
+    {
+      "name": "banana",
+      "weight_g": 120,
+      "calories_kcal": 105,
+      "protein_g": 1.3,
+      "fat_g": 0.3,
+      "carbs_g": 27
+    }
+  ],
+  "total": {
+    "calories_kcal": 183,
+    "protein_g": 1.7,
+    "fat_g": 0.6,
+    "carbs_g": 47
+  }
 }
+
 ```
 
 ### 🔎 Перевірка
