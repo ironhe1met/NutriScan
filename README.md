@@ -252,6 +252,7 @@ NutriScan/
 ### 1. Клонування репозиторію
 
 ```bash
+cd /opt
 git clone https://github.com/ironhe1met/NutriScan.git
 cd NutriScan
 ```
