@@ -28,7 +28,7 @@ async def handle_photo(msg: Message):
     file_bytes = await bot.download_file(file.file_path)
 
     # Конвертуємо в байти для відправки як файл
-    image_data = await file_bytes.read()
+    image_data = file_bytes.read()
     image_stream = BytesIO(image_data)
 
     # multipart/form-data
