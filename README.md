@@ -226,11 +226,22 @@ curl -X POST -F image=@dish.jpg http://localhost:8000/analyze/
 ---
 
 ## 📁 Структура проєкту:
-```python
-nutriscan/
+```bash
+NutriScan/
 ├── app/
-│   ├── main.py
-│   └── utils/
-├── tmp/                ← зберігання зображень
-├── requirements.txt    ← оновлюється поступово
+│   ├── __init__.py
+│   ├── main.py             # Точка входу FastAPI
+│   ├── routes.py           # Роути API (наприклад /upload/, /analyze/)
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── image_utils.py  # Функція конвертації зображень у base64
+│   │   └── openai_client.py # Запит до OpenAI Vision API
+│   └── logger.py           # Налаштування логування
+├── tmp/                    # Тимчасові зображення
+├── tests/                  # Юніт-тести (опціонально)
+├── .env                    # Змінні середовища, включаючи OPENAI_API_KEY
+├── requirements.txt        # Python-залежності
+├── LICENSE                 # MIT License
+├── README.md               # Опис проєкту
+└── install.sh              # Скрипт встановлення та запуску systemd
 ```
