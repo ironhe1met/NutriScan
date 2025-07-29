@@ -1,27 +1,12 @@
-# Byte-compiled / optimized / DLL files
+# Python cache
 __pycache__/
 *.py[cod]
-*.so
 
 # Virtual environment
 venv/
 
-# FastAPI / Pydantic cache
-*.db
-*.sqlite3
-*.log
-
-# Models and assets
-models/
-*.pth
-*.pt
-*.bin
-*.onnx
-!**/models/*.py
-
-# Uploaded/test images
-tests/*.jpg
-tests/*.png
+# Тимчасові файли та зображення
+tmp/
 *.jpg
 *.jpeg
 *.png
@@ -30,11 +15,12 @@ tests/*.png
 .vscode/
 .idea/
 
-# System files
+# Системні файли
 .DS_Store
 Thumbs.db
 
-# Environment variables
+# Змінні середовища
 .env
 
+# Дозволити тестовий файл
 !tests/assets/test.jpg
