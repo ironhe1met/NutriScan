@@ -236,6 +236,8 @@ NutriScan/
 │   └── logger.py           # Логування
 ├── tmp/                    # Тимчасові зображення
 ├── tests/                  # Юніт-тести (опціонально)
+│   ├── check_openai_access.py
+│   └── test_openai_client.py
 ├── .env                    # OPENAI_API_KEY
 ├── requirements.txt        # Залежності
 ├── LICENSE                 # MIT License
