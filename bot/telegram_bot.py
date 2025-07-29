@@ -49,7 +49,7 @@ async def handle_photo(msg: Message):
         return
 
     result = resp.json()
-    reply = format_response(result)
+    reply = format_response(result.get("data", {}))
     await msg.answer(reply, parse_mode=ParseMode.MARKDOWN)
 
 async def main():
