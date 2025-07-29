@@ -201,13 +201,13 @@ POST /analyze/ з image
 * Обробляти помилки OpenAI/відсутні ключі
 * (Опційно) кешування останн
 
-# Перегляд логів сервісу nutriscan
+### Перегляд логів сервісу nutriscan
 sudo journalctl -u nutriscan.service -f
 
-# Якщо хочеш подивитися з самого початку:
+### Якщо хочеш подивитися з самого початку:
 sudo journalctl -u nutriscan.service --no-pager
 
-# Або подивитись лог за сьогодні:
+### Або подивитись лог за сьогодні:
 sudo journalctl -u nutriscan.service --since today
 
 ---
