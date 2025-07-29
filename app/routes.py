@@ -28,17 +28,22 @@ async def analyze_image(image: UploadFile = File(...)):
     # Аналіз через OpenAI
     raw_response = analyze_image_base64(image_base64)
 
-    # Парсинг JSON з відповіді
+    # Очистити тимчасовий файл
+    file_path.unlink(missing_ok=True)
+
+    # Якщо результат уже словник (dict)
+    if isinstance(raw_response, dict):
+        return JSONResponse(content={"raw_response": raw_response, "error": None})
+
+    # Спроба розпарсити JSON-текст від GPT
     try:
-        content = json.loads(
-            raw_response.strip().removeprefix("```json").removesuffix("```").strip()
-        )
+        cleaned = raw_response.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned.removeprefix("```json").removesuffix("```")
+        content = json.loads(cleaned.strip())
         error = None
     except Exception as e:
         content = {"raw_response": raw_response}
         error = f"❌ Не вдалося розпарсити JSON: {e}"
-
-    # Очистити тимчасовий файл
-    file_path.unlink(missing_ok=True)
 
     return JSONResponse(content={"raw_response": content, "error": error})
