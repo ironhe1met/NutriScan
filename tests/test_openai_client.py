@@ -1,7 +1,3 @@
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 import os
 import io
 import json
@@ -12,7 +8,8 @@ import pytest
 from app.openai_client import analyze_image_base64
 
 
-def test_analyze_image_base64(monkeypatch):
+@pytest.mark.asyncio
+async def test_analyze_image_base64(monkeypatch):
     os.environ['OPENAI_API_KEY'] = 'test'
     dummy_base64 = 'data:image/jpeg;base64,dGVzdA=='
     fake_resp = {"choices": [{"message": {"content": "sample"}}]}
@@ -23,4 +20,3 @@ def test_analyze_image_base64(monkeypatch):
     with patch('urllib.request.urlopen', return_value=mock):
         result = analyze_image_base64(dummy_base64)
     assert result == {"raw_response": "sample"}
-
