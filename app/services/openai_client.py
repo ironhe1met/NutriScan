@@ -8,7 +8,6 @@ load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
 def analyze_image_base64(image_base64: str) -> dict:
     """Надіслати base64-зображення до GPT-4o та отримати відповідь у JSON."""
     if not openai.api_key:
@@ -19,25 +18,9 @@ def analyze_image_base64(image_base64: str) -> dict:
 
     system_prompt = (
         "Ти AI-нутриціолог. Проаналізуй їжу на зображенні. Визнач інгредієнти, приблизну вагу (в грамах), "
-        "калорійність, білки, жири та вуглеводи для кожного. Поверни відповідь виключно у JSON-форматі такої структури:\n"
-        "{\n"
-        "  \"ingredients\": [\n"
-        "    {\n"
-        "      \"name\": \"...\",\n"
-        "      \"weight_g\": ...,\n"
-        "      \"calories_kcal\": ...,\n"
-        "      \"protein_g\": ...,\n"
-        "      \"fat_g\": ...,\n"
-        "      \"carbs_g\": ...\n"
-        "    }\n"
-        "  ],\n"
-        "  \"total\": {\n"
-        "    \"calories_kcal\": ...,\n"
-        "    \"protein_g\": ...,\n"
-        "    \"fat_g\": ...,\n"
-        "    \"carbs_g\": ...\n"
-        "  }\n"
-        "}"
+        "калорійність, білки, жири та вуглеводи для кожного. Поверни відповідь виключно у JSON-форматі "
+        "такої структури без жодних коментарів, без крапок, без ```json, лише чистий JSON без переносу рядків: "
+        '{"ingredients": [{"name": "...", "weight_g": ..., "calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}], "total": {"calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}}'
     )
 
     result = openai.chat.completions.create(
@@ -57,7 +40,6 @@ def analyze_image_base64(image_base64: str) -> dict:
     raw_text = result.choices[0].message.content
 
     try:
-        parsed = json.loads(raw_text)
-        return parsed
+        return json.loads(raw_text)
     except json.JSONDecodeError:
         return {"raw_response": raw_text, "error": "❌ Не вдалося розпарсити JSON"}
