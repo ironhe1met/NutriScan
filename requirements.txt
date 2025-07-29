@@ -4,3 +4,4 @@ python-multipart
 accelerate
 pytest
 httpx
+pytest-asyncio
