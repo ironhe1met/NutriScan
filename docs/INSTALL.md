@@ -1,0 +1,64 @@
+# Встановлення NutriScan
+
+## 1. Клонування проєкту
+```bash
+git clone https://github.com/ironhe1met/NutriScan.git
+cd NutriScan
+```
+## 2. Запуск інсталятора
+```bash
+./scripts/install.sh
+```
+## 3. Перевірка статусу сервіса
+```bash
+systemctl status nutriscan
+```
+
+## 🛠 **scripts/install.sh** — встановлення сервісу (на кожному етапі оновлюється)
+
+```bash
+#!/bin/bash
+set -e
+
+echo "🔧 Встановлення системних залежностей..."
+sudo apt update
+sudo apt install -y python3.10 python3.10-venv python3-pip git wget libgl1
+
+echo "📦 Створення Python-середовища..."
+python3.10 -m venv venv
+source venv/bin/activate
+
+echo "📥 Встановлення Python-залежностей..."
+pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "⬇️ Завантаження моделей..."
+bash scripts/download_models.sh
+
+echo "✅ Модель готова."
+
+echo "🛠️ Створення systemd unit..."
+cat <<EOF | sudo tee /etc/systemd/system/nutriscan.service > /dev/null
+[Unit]
+Description=NutriScan FastAPI Server
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/NutriScan
+ExecStart=/opt/NutriScan/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "🔁 Перезапуск systemd..."
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable nutriscan
+sudo systemctl restart nutriscan
+
+echo "✅ Установка завершена. Сервер працює на http://<IP>:8000"
+
+```
