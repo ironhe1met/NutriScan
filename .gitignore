@@ -26,9 +26,6 @@ tests/*.png
 *.jpeg
 *.png
 
-# Assets that should not go to repo
-app/assets/labels_food101.json
-
 # VS Code / PyCharm
 .vscode/
 .idea/
@@ -39,3 +36,5 @@ Thumbs.db
 
 # Environment variables
 .env
+
+!tests/assets/test.jpg
