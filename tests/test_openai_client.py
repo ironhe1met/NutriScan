@@ -8,8 +8,7 @@ import pytest
 from app.openai_client import analyze_image_base64
 
 
-@pytest.mark.asyncio
-async def test_analyze_image_base64(monkeypatch):
+def test_analyze_image_base64(monkeypatch):
     os.environ['OPENAI_API_KEY'] = 'test'
     dummy_base64 = 'data:image/jpeg;base64,dGVzdA=='
     fake_resp = {"choices": [{"message": {"content": "sample"}}]}
