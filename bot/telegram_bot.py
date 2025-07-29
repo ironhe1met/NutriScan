@@ -49,6 +49,8 @@ async def handle_photo(msg: Message):
         return
 
     result = resp.json()
+    print("📦 RAW API result:", result)
+    
     reply = format_response(result.get("data", {}))
     await msg.answer(reply, parse_mode=ParseMode.MARKDOWN)
 
