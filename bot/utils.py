@@ -2,16 +2,15 @@ import json
 
 def format_response(result: dict) -> str:
     data = result.get("data", {})
-    error = data.get("error") or result.get("error")
+    error = result.get("error") or data.get("error")
 
     if error:
         return "⚠️ Не вдалося обробити зображення."
 
-    # 🔽 Якщо не розпарсилось — пробуємо самі
+    # 🔄 Якщо є raw_response, спробуй розпарсити вручну
     if "ingredients" not in data and "raw_response" in data:
         raw = data["raw_response"]
         try:
-            # Витягуємо чистий JSON зі строки
             raw = raw.strip()
             if raw.startswith("```"):
                 raw = raw.strip("`").strip()
