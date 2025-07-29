@@ -242,5 +242,7 @@ NutriScan/
 ├── requirements.txt        # Залежності
 ├── LICENSE                 # MIT License
 ├── README.md               # Документація
+├── deploy.sh               # Скрипт оновлення systemd
 └── install.sh              # Скрипт встановлення systemd
+
 ```
