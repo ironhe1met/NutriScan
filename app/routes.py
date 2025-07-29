@@ -33,7 +33,7 @@ async def analyze_image(image: UploadFile = File(...)):
 
     # Якщо результат уже словник (dict)
     if isinstance(raw_response, dict):
-        return JSONResponse(content={"raw_response": raw_response, "error": None})
+        return JSONResponse(content={"data": raw_response, "error": None})
 
     # Спроба розпарсити JSON-текст від GPT
     try:
@@ -43,7 +43,7 @@ async def analyze_image(image: UploadFile = File(...)):
         content = json.loads(cleaned.strip())
         error = None
     except Exception as e:
-        content = {"raw_response": raw_response}
+        content = None
         error = f"❌ Не вдалося розпарсити JSON: {e}"
 
-    return JSONResponse(content={"raw_response": content, "error": error})
+    return JSONResponse(content={"data": content, "error": error})
