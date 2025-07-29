@@ -1,5 +1,4 @@
 import os
-import base64
 import httpx
 from io import BytesIO
 from dotenv import load_dotenv
@@ -28,17 +27,20 @@ async def handle_photo(msg: Message):
     file = await bot.get_file(photo.file_id)
     file_bytes = await bot.download_file(file.file_path)
 
-    image_b64 = base64.b64encode(file_bytes.read()).decode()
+    # Конвертуємо в байти для відправки як файл
+    image_data = await file_bytes.read()
+    image_stream = BytesIO(image_data)
 
-    # Надсилаємо файл як multipart/form-data
-    files = {"image": ("image.jpg", base64.b64decode(image_b64), "image/jpeg")}
+    # multipart/form-data
+    files = {
+        "image": ("image.jpg", image_stream, "image/jpeg")
+    }
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(API_URL, files=files)
 
     print("Response status:", resp.status_code)
     print("Response text:", resp.text)
-
 
     if resp.status_code != 200:
         await msg.answer("⚠️ Не вдалося обробити зображення.")
