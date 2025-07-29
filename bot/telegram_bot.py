@@ -31,7 +31,7 @@ async def handle_photo(msg: Message):
     image_b64 = base64.b64encode(file_bytes.read()).decode()
 
     async with httpx.AsyncClient() as client:
-        resp = await client.post(API_URL, json={"image_base64": image_b64})
+        resp = await client.post(API_URL, json={"image": image_b64})
 
     print("Response status:", resp.status_code)
     print("Response text:", resp.text)
