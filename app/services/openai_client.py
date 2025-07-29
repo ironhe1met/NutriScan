@@ -1,39 +1,35 @@
 import os
-import json
-import requests
+import base64
+import openai
 from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def analyze_image_base64(image_base64: str) -> dict:
-    """Надіслати зображення (base64) до GPT-4 Vision та отримати відповідь."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("❌ OPENAI_API_KEY is not set in environment")
+    """Надіслати base64-зображення до GPT-4o через OpenAI SDK."""
+    if not openai.api_key:
+        raise RuntimeError("❌ OPENAI_API_KEY is not set")
 
-    payload = {
-        "model": "gpt-4-vision-preview",
-        "messages": [
+    # Видалити префікс, якщо є
+    if image_base64.startswith("data:image"):
+        image_base64 = image_base64.split(",", 1)[1]
+
+    result = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=[
             {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": "Опиши інгредієнти страви з вагою (грам), калоріями та БЖУ."},
-                    {"type": "image_url", "image_url": {"url": image_base64}},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
                 ],
             }
         ],
-        "max_tokens": 500,
-    }
+        max_tokens=500
+    )
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    response = requests.post(OPENAI_API_URL, headers=headers, json=payload)
-    response.raise_for_status()
-    content = response.json()["choices"][0]["message"]["content"]
+    content = result.choices[0].message.content
     return {"raw_response": content}
