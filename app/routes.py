@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse
 from pathlib import Path
@@ -21,13 +22,26 @@ async def analyze_image(image: UploadFile = File(...)):
     with file_path.open("wb") as f:
         f.write(await image.read())
 
-    # Конвертація у base64
+    # Конвертація в base64
     image_base64 = image_to_base64(str(file_path))
 
     # Аналіз через OpenAI
     result = analyze_image_base64(image_base64)
 
+    # Спроба обробити JSON
+    parsed_json = None
+    if isinstance(result, str):
+        try:
+            # Якщо відповідь GPT містить Markdown-блок "```json ... ```"
+            result_clean = result.strip().removeprefix("```json").removesuffix("```")
+            parsed_json = json.loads(result_clean)
+        except Exception as e:
+            return JSONResponse(content={
+                "raw_response": result,
+                "error": f"❌ Не вдалося розпарсити JSON: {str(e)}"
+            })
+
     # Очистити тимчасовий файл
     file_path.unlink(missing_ok=True)
 
-    return JSONResponse(content=result)
+    return JSONResponse(content=parsed_json or {"raw_response": result})
