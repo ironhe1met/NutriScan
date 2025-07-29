@@ -1,13 +1,4 @@
 fastapi
 uvicorn
 python-multipart
-pytest
-httpx
-torch
-torchvision
-Pillow
-git+https://github.com/huggingface/transformers.git@main#egg=transformers
-safetensors
-requests
-qwen-vl-utils[decord]==0.0.8
 accelerate
