@@ -1,4 +1,9 @@
 import os
+import sys
+
+# 👇 Додаємо корінь проєкту до PYTHONPATH
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import httpx
 from io import BytesIO
 from dotenv import load_dotenv
@@ -40,7 +45,6 @@ async def handle_photo(msg: Message):
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(API_URL, files=files)
 
-
     print("Response status:", resp.status_code)
     print("Response text:", resp.text)
 
@@ -57,7 +61,6 @@ async def handle_photo(msg: Message):
         reply = "⚠️ Не вдалося визначити інгредієнти."
 
     await msg.answer(reply, parse_mode=ParseMode.MARKDOWN)
-
 
 async def main():
     await dp.start_polling(bot)

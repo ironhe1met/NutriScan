@@ -28,7 +28,7 @@ After=network.target
 Type=simple
 User=${USER}
 WorkingDirectory=$(pwd)
-ExecStart=$(which python3) bot/telegram_bot.py
+ExecStart=$(which python3) -m bot.telegram_bot
 Restart=on-failure
 Environment=BOT_TOKEN=${BOT_TOKEN}
 
