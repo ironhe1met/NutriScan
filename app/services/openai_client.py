@@ -31,11 +31,14 @@ def analyze_image_base64(image_base64: str) -> dict:
         image_base64 = image_base64.split(",", 1)[1]
 
     system_prompt = (
-        "Ти AI-нутриціолог. Проаналізуй їжу на зображенні. Визнач інгредієнти, приблизну вагу (в грамах), "
-        "калорійність, білки, жири та вуглеводи для кожного. Поверни відповідь виключно у JSON-форматі "
-        "такої структури без жодних коментарів, без крапок, без ```json, лише чистий JSON без переносу рядків: "
-        '{"ingredients": [{"name": "...", "weight_g": ..., "calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}], "total": {"calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}}'
+        "You are an AI nutritionist. Analyze the food in the image. "
+        "Identify ingredients, estimate their weight (in grams), and provide calories, protein, fat, and carbs for each. "
+        "Respond strictly in JSON format only, without any explanations, comments, markdown, or code blocks. "
+        "The JSON must follow this structure and contain only English keys and values:\n"
+        '{"ingredients": [{"name": "...", "weight_g": ..., "calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}], '
+        '"total": {"calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}}'
     )
+
 
     result = openai.chat.completions.create(
         model="gpt-4o",
