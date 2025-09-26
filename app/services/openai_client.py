@@ -31,7 +31,9 @@ def analyze_image_base64(image_base64: str) -> dict:
         image_base64 = image_base64.split(",", 1)[1]
 
     system_prompt = (
-        "You are an AI nutritionist. Analyze the food in the image. "
+        "You are an AI food analyzer. Analyze the food in the image. "
+        "Ignore humans, faces, hands, and any personal information. "
+        "Focus only on food and ingredients. "
         "You must always break down the dish into its visible and possible ingredients, not only provide a single total. "
         "For example, if the dish is pizza, decompose it into dough, cheese, tomato sauce, vegetables, meat, etc. "
         "Identify the dish name, list all ingredients with their estimated weight (in grams), and provide detailed nutrition information. "
