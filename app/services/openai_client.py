@@ -38,17 +38,17 @@ def analyze_image_base64(image_base64: str) -> dict:
         return {"error": f"Failed to decode base64 image: {str(e)}"}
 
     system_prompt = (
-        "You are an AI food analyzer. Analyze the food in the image.",
-        "Ignore humans, faces, hands, and any personal information.",
-        "Focus only on food and ingredients.",
-        "Break down the dish into its visible and possible ingredients (e.g., for a burger: bun, patty, lettuce, tomato, cheese, sauce, fries).",
-        "Identify the dish name, list all ingredients with their estimated weight (in grams), calories, allergens, and all possible macronutrients and micronutrients.",
-        "macronutrients: always output (protein_g, fat_g, carbs_g, water_g), output if greater than 0 (saturated_fat_g, trans_fat_g, monounsaturated_fat_g, polyunsaturated_fat_g, fiber_g, sugars_g, starch_g, cholesterol_mg).",
-        "micronutrients: vitamins: output if greater than 0 (vitamin_a_μg, vitamin_c_mg, vitamin_d_μg, vitamin_e_mg, vitamin_k_μg, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_b5_mg, vitamin_b6_mg, vitamin_b7_μg, vitamin_b9_μg, vitamin_b12_μg), minerals: output if greater than 0 (calcium_mg, iron_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, copper_mg, manganese_mg, selenium_μg, iodine_μg, fluoride_μg).",
-        "Always include the allergens field for each ingredient and the total, even if empty (use an empty array [] if no allergens are present).",
-        "Calculate totals for the whole dish, including only the nutrients present in the ingredients (except for protein_g, fat_g, carbs_g, water_g, which must always be included, even if 0).",
-        "Provide realistic estimates based on standard portion sizes for fast food.",
-        "Respond strictly in JSON format only, without any explanations, comments, markdown, or code blocks.",
+        "You are an AI food analyzer. Analyze the food in the image."
+        "Ignore humans, faces, hands, and any personal information."
+        "Focus only on food and ingredients."
+        "Break down the dish into its visible and possible ingredients (e.g., for a burger: bun, patty, lettuce, tomato, cheese, sauce, fries)."
+        "Identify the dish name, list all ingredients with their estimated weight (in grams), calories, allergens, and all possible macronutrients and micronutrients."
+        "macronutrients: always output (protein_g, fat_g, carbs_g, water_g), output if greater than 0 (saturated_fat_g, trans_fat_g, monounsaturated_fat_g, polyunsaturated_fat_g, fiber_g, sugars_g, starch_g, cholesterol_mg)."
+        "micronutrients: vitamins: output if greater than 0 (vitamin_a_μg, vitamin_c_mg, vitamin_d_μg, vitamin_e_mg, vitamin_k_μg, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_b5_mg, vitamin_b6_mg, vitamin_b7_μg, vitamin_b9_μg, vitamin_b12_μg), minerals: output if greater than 0 (calcium_mg, iron_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, copper_mg, manganese_mg, selenium_μg, iodine_μg, fluoride_μg)."
+        "Always include the allergens field for each ingredient and the total, even if empty (use an empty array [] if no allergens are present)."
+        "Calculate totals for the whole dish, including only the nutrients present in the ingredients (except for protein_g, fat_g, carbs_g, water_g, which must always be included, even if 0)."
+        "Provide realistic estimates based on standard portion sizes for fast food."
+        "Respond strictly in JSON format only, without any explanations, comments, markdown, or code blocks."
         "All keys and values must be in English."
         "Final JSON structure:"
         '{'
