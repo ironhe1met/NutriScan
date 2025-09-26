@@ -32,14 +32,6 @@ def analyze_image_base64(image_base64: str) -> dict:
 
     system_prompt = (
         "You are an AI nutritionist. Analyze the food in the image. "
-        "Identify ingredients, estimate their weight (in grams), and provide calories, protein, fat, and carbs for each. "
-        "Respond strictly in JSON format only, without any explanations, comments, markdown, or code blocks. "
-        "The JSON must follow this structure and contain only English keys and values:\n"
-        '{"ingredients": [{"name": "...", "weight_g": ..., "calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}], '
-        '"total": {"calories_kcal": ..., "protein_g": ..., "fat_g": ..., "carbs_g": ...}}'
-    )
-    system_prompt = (
-        "You are an AI nutritionist. Analyze the food in the image. "
         "You must always break down the dish into its visible and possible ingredients, not only provide a single total. "
         "For example, if the dish is pizza, decompose it into dough, cheese, tomato sauce, vegetables, meat, etc. "
         "Identify the dish name, list all ingredients with their estimated weight (in grams), and provide detailed nutrition information. "
