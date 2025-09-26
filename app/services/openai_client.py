@@ -169,7 +169,7 @@ def analyze_image_base64(image_base64: str) -> dict:
                     ]
                 }
             ],
-            max_tokens=800
+            max_tokens=2000
         )
     except openai.OpenAIError as e:
         return {"error": f"OpenAI API error: {str(e)}"}
