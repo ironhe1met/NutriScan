@@ -30,6 +30,13 @@ def analyze_image_base64(image_base64: str) -> dict:
     if image_base64.startswith("data:image"):
         image_base64 = image_base64.split(",", 1)[1]
 
+    # Логування: перевіряємо, чи base64-зображення коректне
+    try:
+        decoded_image = base64.b64decode(image_base64)
+        print("Image decoded successfully, size:", len(decoded_image))
+    except Exception as e:
+        return {"error": f"Failed to decode base64 image: {str(e)}"}
+
     system_prompt = (
         "You are an AI food analyzer. Analyze the food in the image. "
         "Ignore humans, faces, hands, and any personal information. "
@@ -150,26 +157,38 @@ def analyze_image_base64(image_base64: str) -> dict:
         '}, '
     )
 
-
-
-    result = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": system_prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
-                ]
-            }
-        ],
-        max_tokens=800
-    )
+    try:
+        result = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": system_prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                    ]
+                }
+            ],
+            max_tokens=800
+        )
+    except openai.OpenAIError as e:
+        return {"error": f"OpenAI API error: {str(e)}"}
 
     raw_text = result.choices[0].message.content
+    # Логування сирої відповіді
+    print("Raw GPT-4o response:", raw_text)
     extracted_json = extract_json_from_text(raw_text)
+    # Логування витягнутого JSON
+    print("Extracted JSON text:", extracted_json)
 
     try:
         return json.loads(extracted_json)
     except json.JSONDecodeError:
         return {"raw_response": raw_text, "error": "❌ Не вдалося розпарсити JSON"}
+
+# Тестування локально
+if __name__ == "__main__":
+    with open("bur.jpeg", "rb") as image_file:
+        image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
+    result = analyze_image_base64(image_base64)
+    print("Final result:", json.dumps(result, indent=2, ensure_ascii=False))
