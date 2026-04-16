@@ -1,26 +1,26 @@
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
-
-# Virtual environment
 venv/
 
-# Тимчасові файли та зображення
+# Data (local only)
+data/
 tmp/
+logs/
+
+# Images (except test fixtures)
 *.jpg
 *.jpeg
 *.png
+!tests/fixtures/*.jpg
 
-# VS Code / PyCharm
+# IDE
 .vscode/
 .idea/
 
-# Системні файли
+# OS
 .DS_Store
 Thumbs.db
 
-# Змінні середовища
+# Secrets
 .env
-
-# Дозволити тестовий файл
-!tests/assets/test.jpg

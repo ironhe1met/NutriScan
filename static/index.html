@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NutriScan — Test</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 1.8em; color: #38bdf8; margin-bottom: 8px; }
+  .subtitle { color: #64748b; margin-bottom: 32px; }
+  .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  select { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; font-size: 0.95em; cursor: pointer; }
+  select:focus { outline: none; border-color: #38bdf8; }
+
+  .drop-zone { border: 2px dashed #334155; border-radius: 16px; padding: 60px 20px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 24px; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #38bdf8; background: #1e293b; }
+  .drop-zone p { color: #64748b; font-size: 1.1em; }
+  .drop-zone .hint { color: #475569; font-size: 0.85em; margin-top: 8px; }
+  input[type=file] { display: none; }
+
+  .preview { max-width: 300px; max-height: 300px; border-radius: 12px; margin: 16px auto; display: none; }
+  .btn { background: #38bdf8; color: #0f172a; border: none; border-radius: 10px; padding: 12px 32px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s; display: none; }
+  .btn:hover { background: #7dd3fc; }
+  .btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+  .status { text-align: center; margin: 16px 0; color: #94a3b8; display: none; }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result { background: #1e293b; border-radius: 12px; padding: 24px; margin-top: 24px; display: none; }
+  .result h2 { color: #38bdf8; font-size: 1.3em; margin-bottom: 4px; }
+  .meta { color: #64748b; font-size: 0.85em; margin-bottom: 16px; }
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .summary .pill { background: #0f172a; border-radius: 8px; padding: 10px 16px; }
+  .summary .pill .val { font-size: 1.4em; font-weight: bold; color: #f8fafc; }
+  .summary .pill .lbl { font-size: 0.8em; color: #64748b; }
+
+  .ingredients { margin-top: 16px; }
+  .ing { background: #0f172a; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+  .ing .name { font-weight: 600; color: #f8fafc; }
+  .ing .details { color: #94a3b8; font-size: 0.9em; margin-top: 4px; }
+  .allergens { color: #f87171; font-size: 0.85em; margin-top: 4px; }
+
+  .json-toggle { background: none; border: 1px solid #334155; color: #64748b; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.85em; margin-top: 16px; }
+  .json-raw { background: #020617; border-radius: 8px; padding: 16px; margin-top: 12px; overflow-x: auto; font-family: 'SF Mono', Consolas, monospace; font-size: 0.8em; color: #94a3b8; white-space: pre-wrap; display: none; max-height: 500px; overflow-y: auto; }
+  .error { background: #451a1a; border-radius: 12px; padding: 20px; color: #fca5a5; margin-top: 24px; display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>NutriScan</h1>
+  <p class="subtitle">AI food analysis — upload a photo to analyze nutrients</p>
+
+  <div class="controls">
+    <select id="provider">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT-4o)</option>
+      <option value="google">Google (Gemini)</option>
+    </select>
+    <select id="model">
+      <option value="sonnet">Sonnet</option>
+      <option value="opus">Opus</option>
+      <option value="haiku">Haiku</option>
+    </select>
+  </div>
+
+  <div class="drop-zone" id="dropZone">
+    <p>Drop a food photo here or click to upload</p>
+    <p class="hint">JPEG, PNG, WebP — max 10 MB</p>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+  <img class="preview" id="preview">
+  <div style="text-align:center"><button class="btn" id="analyzeBtn">Analyze</button></div>
+  <div class="status" id="status"><span class="spinner"></span><span id="statusText">Analyzing...</span></div>
+  <div class="error" id="error"></div>
+
+  <div class="result" id="result">
+    <h2 id="dishName"></h2>
+    <div class="meta" id="meta"></div>
+    <div class="summary" id="summary"></div>
+    <div class="ingredients" id="ingredients"></div>
+    <button class="json-toggle" id="jsonToggle">Show raw JSON</button>
+    <div class="json-raw" id="jsonRaw"></div>
+  </div>
+</div>
+
+<script>
+const models = {
+  anthropic: [{v:'sonnet',l:'Sonnet'},{v:'opus',l:'Opus'},{v:'haiku',l:'Haiku'}],
+  openai: [{v:'gpt4o',l:'GPT-4o'},{v:'gpt4o-mini',l:'GPT-4o Mini'}],
+  google: [{v:'flash',l:'Flash'},{v:'flash-lite',l:'Flash Lite'},{v:'pro',l:'Pro'}]
+};
+
+const providerSel = document.getElementById('provider');
+const modelSel = document.getElementById('model');
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const preview = document.getElementById('preview');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const status = document.getElementById('status');
+const statusText = document.getElementById('statusText');
+const resultDiv = document.getElementById('result');
+const errorDiv = document.getElementById('error');
+
+let selectedFile = null;
+
+providerSel.addEventListener('change', () => {
+  const opts = models[providerSel.value] || [];
+  modelSel.innerHTML = opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+});
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  selectedFile = file;
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  analyzeBtn.style.display = 'inline-block';
+  resultDiv.style.display = 'none';
+  errorDiv.style.display = 'none';
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  analyzeBtn.disabled = true;
+  status.style.display = 'block';
+  resultDiv.style.display = 'none';
+  errorDiv.style.display = 'none';
+  statusText.textContent = 'Analyzing...';
+
+  const form = new FormData();
+  form.append('image', selectedFile);
+  const provider = providerSel.value;
+  const model = modelSel.value;
+  const t0 = Date.now();
+
+  try {
+    const resp = await fetch(`/analyze/?provider=${provider}&model=${model}`, { method: 'POST', body: form });
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(err.detail || resp.statusText);
+    }
+
+    const json = await resp.json();
+    const d = json.data;
+    status.style.display = 'none';
+    resultDiv.style.display = 'block';
+
+    document.getElementById('dishName').textContent = d.dish_name || 'Unknown dish';
+    document.getElementById('meta').textContent = `${provider} / ${model} — ${elapsed}s`;
+
+    const t = d.total || {};
+    const m = t.macronutrients || {};
+    document.getElementById('summary').innerHTML = [
+      pill(t.calories_kcal||0, 'kcal'),
+      pill(m.protein_g||0, 'Protein g'),
+      pill(m.fat_g||0, 'Fat g'),
+      pill(m.carbs_g||0, 'Carbs g'),
+      pill(m.water_g||0, 'Water g'),
+    ].join('');
+
+    if (t.allergens && t.allergens.length) {
+      document.getElementById('summary').innerHTML += `<div class="pill" style="border:1px solid #f87171"><div class="val" style="color:#f87171;font-size:1em">${t.allergens.join(', ')}</div><div class="lbl">Allergens</div></div>`;
+    }
+
+    const ings = d.ingredients || [];
+    document.getElementById('ingredients').innerHTML = ings.map(i => {
+      const im = i.macronutrients || {};
+      let html = `<div class="ing"><div class="name">${i.name} — ${i.weight_g}g (${i.calories_kcal} kcal)</div>`;
+      html += `<div class="details">P:${im.protein_g||0} F:${im.fat_g||0} C:${im.carbs_g||0}</div>`;
+      if (i.allergens && i.allergens.length) html += `<div class="allergens">Allergens: ${i.allergens.join(', ')}</div>`;
+      return html + '</div>';
+    }).join('');
+
+    document.getElementById('jsonRaw').textContent = JSON.stringify(json, null, 2);
+
+  } catch (e) {
+    status.style.display = 'none';
+    errorDiv.style.display = 'block';
+    errorDiv.textContent = e.message;
+  }
+
+  analyzeBtn.disabled = false;
+});
+
+document.getElementById('jsonToggle').addEventListener('click', () => {
+  const el = document.getElementById('jsonRaw');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+});
+
+function pill(val, label) {
+  return `<div class="pill"><div class="val">${val}</div><div class="lbl">${label}</div></div>`;
+}
+</script>
+</body>
+</html>

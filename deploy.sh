@@ -1,21 +1,20 @@
 #!/bin/bash
 set -e
 
-echo "📁 Перехід до проєкту..."
-cd /opt/NutriScan
+APP_DIR="/opt/NutriScan"
 
-echo "🔄 Оновлення репозиторію..."
+echo "Updating repository..."
+cd "$APP_DIR"
 git pull origin main
 
-echo "🐍 Активація віртуального середовища..."
+echo "Installing dependencies..."
 source venv/bin/activate
+pip install -r requirements.txt --quiet
 
-echo "📦 Оновлення залежностей..."
-pip install -r requirements.txt
+echo "Restarting services..."
+sudo systemctl restart nutriscan
+sudo systemctl restart nutriscan-bot
 
-echo "🚀 Перезапуск FastAPI-сервера..."
-# Якщо використовуєш systemd:
-systemctl restart nutriscan
-
-# Або через скрипт:
-#bash scripts/run_server.sh
+echo "Done. Checking status..."
+sudo systemctl is-active nutriscan
+sudo systemctl is-active nutriscan-bot
