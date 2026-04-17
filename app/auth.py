@@ -11,15 +11,25 @@ class NotAuthenticated(Exception):
 
 
 def verify_credentials(username: str, password: str) -> bool:
-    if not settings.admin_password:
+    # Dev mode: no password configured = allow all
+    if not settings.admin_password and not settings.admin_users:
         return True
-    correct_user = secrets.compare_digest(
-        username.encode(), settings.admin_username.encode()
-    )
-    correct_pass = secrets.compare_digest(
-        password.encode(), settings.admin_password.get_secret_value().encode()
-    )
-    return correct_user and correct_pass
+
+    # Check primary admin
+    if settings.admin_password:
+        if secrets.compare_digest(username.encode(), settings.admin_username.encode()) \
+                and secrets.compare_digest(
+                    password.encode(),
+                    settings.admin_password.get_secret_value().encode(),
+                ):
+            return True
+
+    # Check additional users
+    stored_pass = settings.admin_users.get(username)
+    if stored_pass and secrets.compare_digest(password.encode(), stored_pass.encode()):
+        return True
+
+    return False
 
 
 def is_authenticated(request: Request) -> bool:
