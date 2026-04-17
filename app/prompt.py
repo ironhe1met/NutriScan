@@ -9,8 +9,32 @@ Identify the dish name, list all ingredients with their estimated weight (in gra
 ## Disambiguation guidance — apply extra scrutiny on commonly confused items
 
 Protein identification:
-- Chicken vs fish vs turkey vs pork (especially when sliced or cooked): chicken has fibrous texture with clear grain, fish is flaky and breaks into layers, turkey is drier and darker, pork has marbled fat pattern. Look at cooking method context (grilled fish often has char marks, chicken doesn't brown the same).
-- Beef vs lamb: lamb is darker and has distinct fat marbling, beef has coarser grain.
+
+CRITICAL — FISH vs CHICKEN distinction (most common error, very easy to confuse after cooking):
+
+Strong indicators of FISH (not chicken):
+- Golden-yellow shiny skin — this is fish skin, NOT turmeric. Baked mackerel, sea bass, seabream, cod all develop natural golden-yellow skin from their own oils. Chicken skin does not turn golden-yellow naturally, it turns pale brown or tan.
+- Flesh breaks into DISTINCT FLAKES that separate in clean horizontal layers — fish muscle is arranged in short segments (myotomes). Chicken flesh separates in long fibrous STRANDS that pull in one direction.
+- Visible scales or scale pattern on the skin surface.
+- Elongated, thin, tapering shape of the piece. Fish fillets are thin and long. Chicken breast is thick, oval/rounded.
+- Translucent or slightly moist-looking flesh even when cooked.
+- Context: if on a plate with lemon wedges, dill, or simple vegetables/grains — more likely fish.
+
+Strong indicators of CHICKEN (not fish):
+- Pale beige to light brown skin (never golden-yellow naturally).
+- Flesh pulls apart in LONG FIBROUS STRANDS (think pulled chicken texture).
+- Thick, rounded, oval shape of the piece (chicken breast) or with visible joint/bone (drumstick, thigh).
+- Dense uniform texture when sliced, not layered.
+- Context: with potatoes, salad, rice pilaf, pasta — more commonly chicken in Western cuisine.
+
+Decision rule: if you see a piece of white/light meat with golden-yellow shiny skin and flaky layered texture — CALL IT FISH, not chicken. The yellow color is from fish oils, not from turmeric seasoning. Only call it chicken if the skin is clearly pale/brown AND texture is fibrous-stranded.
+
+When genuinely ambiguous (no clear skin visible, texture unclear): prefer "baked white fish (sea bass or cod)" as a safer default over "grilled chicken" when served with vegetables and grains in European/Ukrainian cuisine context, because home-cooked fish is more common than grilled chicken in such settings.
+
+Other protein confusions:
+- Turkey vs chicken: turkey is darker, drier, often sliced thin (deli-style).
+- Pork: marbled fat pattern, pinker raw tone.
+- Beef vs lamb: lamb is darker with distinct fat marbling, beef has coarser grain.
 - Tuna vs salmon: salmon has orange-pink color with white fat stripes, tuna is deeper red/maroon and more uniform.
 - Real crab vs imitation crab (surimi): surimi has uniform white-orange striped appearance, real crab has fibrous varied texture.
 - Shrimp vs prawns: shrimp are smaller and have straight bodies, prawns are larger and curl into a C shape.
@@ -22,7 +46,15 @@ Dairy and sauces (critical — frequently confused):
 - Feta vs goat cheese vs halloumi: feta is crumbly and white, goat cheese is softer and more uniform, halloumi has grill marks and rubbery texture.
 
 Vegetables:
-- Asparagus vs green beans vs scallions: asparagus has triangular tips and thicker stalks, green beans are rounded and uniform, scallions have hollow stems.
+
+CRITICAL — ASPARAGUS vs GREEN BEANS distinction:
+- Asparagus has POINTED/TRIANGULAR TIPS with visible small leaf-like scales at the top. The tips look like an arrowhead or pinecone tip.
+- Asparagus stalks are THICKER at the base and taper to the tip. The base is often woody and lighter.
+- Green beans are CYLINDRICAL, uniform diameter throughout, with ROUNDED/BLUNT ends (no pointed tip). They are often thinner and more uniform.
+- Green beans can be slightly curved. Asparagus is almost always straight.
+- Scallions have HOLLOW STEMS with a bulbous white base.
+
+Decision rule: if the green stalk has a pointed/triangular tip with scale-like pattern — it is ASPARAGUS. Only call it "green beans" if the ends are clearly rounded and the diameter is uniform throughout.
 - Broccoli vs green cauliflower (Romanesco): broccoli has rounded florets, Romanesco has distinct spiral fractal pattern.
 - Zucchini vs cucumber: zucchini is matte with ridges and visible seeds when sliced, cucumber is smoother and more uniform when sliced.
 - Bell peppers by color (red/yellow/orange): identify by dominant color, but be aware ripening causes shifts.
@@ -56,6 +88,43 @@ Hidden ingredients and cooking realities:
 - Salads: include realistic dressing amounts (typically 2-3 tablespoons).
 - Baked goods (cakes, pastries): include butter, sugar, and eggs proportionally.
 - Sauces and condiments: include sugar content (ketchup, BBQ sauce, teriyaki are high in sugar).
+
+## Portion weight estimation — use standard reference sizes for consistency
+
+Use these DEFAULT WEIGHTS when the portion fills a typical serving position on a standard dinner plate (26-28cm diameter). Only deviate if the portion is visibly much larger or smaller than standard:
+
+Proteins (main dish):
+- Grilled/baked fish fillet: 150g (standard), 200g (large), 120g (small)
+- Chicken breast (single piece): 150g (standard), 200g (large), 120g (small)
+- Beef steak: 180g (standard)
+- Meatballs (3-4 pieces): 150g
+- Shrimp (6-8 pieces): 120g
+
+Grains and starches (as side dish):
+- Cooked rice: 150g (standard), 200g (generous), 100g (small)
+- Cooked buckwheat: 150g (standard), 200g (generous), 100g (small)
+- Cooked pasta: 180g (standard), 250g (main course)
+- Mashed potatoes: 180g
+- Boiled potatoes: 200g
+
+Vegetables:
+- Steamed/boiled vegetables as side: 100-150g
+- Salad: 100g
+- Raw salad greens only: 50g
+- Single cauliflower floret: 20-25g (count visible florets)
+- Single asparagus spear: 15-20g (count visible spears)
+- Broccoli floret: 20g
+- Cherry tomatoes: 10-12g each
+
+Fats and oils (often overlooked but significant for calories):
+- Light oil coating on grilled food: 5-8g
+- Visible oil/sauce drizzle: 10-15g
+- Butter pat on potato/vegetables: 10g
+- Salad dressing (visible): 20-30g
+
+Consistency rule: for the SAME dish composition, aim for consistent weight estimates across analyses. Do not vary wildly (e.g. do not call the same buckwheat portion 100g in one analysis and 180g in another). Default to the standard sizes above unless there is clear visual evidence of a larger or smaller portion.
+
+Always include cooking oil as a separate ingredient (5-10g) for grilled, roasted, or pan-cooked items with visible sheen, even if subtle. This keeps calorie totals consistent.
 
 ## Output requirements
 
