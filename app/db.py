@@ -22,14 +22,19 @@ async def init_db():
                 dish_name TEXT,
                 image_size_bytes INTEGER,
                 ingredients_count INTEGER,
-                result_json TEXT
+                result_json TEXT,
+                image_filename TEXT
             )
         """)
-        # Migration: add result_json column if missing (existing DBs)
-        try:
-            await db.execute("ALTER TABLE requests ADD COLUMN result_json TEXT")
-        except Exception:
-            pass  # column already exists
+        # Migrations: add columns if missing (existing DBs)
+        for column_def in [
+            "ALTER TABLE requests ADD COLUMN result_json TEXT",
+            "ALTER TABLE requests ADD COLUMN image_filename TEXT",
+        ]:
+            try:
+                await db.execute(column_def)
+            except Exception:
+                pass  # column already exists
         await db.commit()
 
 
@@ -44,20 +49,23 @@ async def log_request(
     image_size_bytes: int | None = None,
     ingredients_count: int | None = None,
     result_json: dict | None = None,
-):
+    image_filename: str | None = None,
+) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
+        cursor = await db.execute(
             """INSERT INTO requests
                (timestamp, provider, model, response_time_ms, success, error,
-                dish_name, image_size_bytes, ingredients_count, result_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                dish_name, image_size_bytes, ingredients_count, result_json, image_filename)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 time.time(), provider, model, response_time_ms, success,
                 error, dish_name, image_size_bytes, ingredients_count,
                 json.dumps(result_json, ensure_ascii=False) if result_json else None,
+                image_filename,
             ),
         )
         await db.commit()
+        return cursor.lastrowid
 
 
 async def get_stats() -> dict:
@@ -101,12 +109,20 @@ async def get_stats() -> dict:
     }
 
 
-async def get_history(limit: int = 50, offset: int = 0) -> list[dict]:
+async def count_history() -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM requests WHERE success = 1 AND result_json IS NOT NULL"
+        )
+        return (await cursor.fetchone())[0]
+
+
+async def get_history(limit: int = 100, offset: int = 0) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             """SELECT id, timestamp, provider, model, response_time_ms,
-                      dish_name, ingredients_count, result_json
+                      dish_name, ingredients_count, result_json, image_filename
                FROM requests
                WHERE success = 1 AND result_json IS NOT NULL
                ORDER BY timestamp DESC
@@ -128,7 +144,7 @@ async def get_entry(entry_id: int) -> dict | None:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             """SELECT id, timestamp, provider, model, response_time_ms,
-                      dish_name, ingredients_count, result_json
+                      dish_name, ingredients_count, result_json, image_filename
                FROM requests WHERE id = ?""",
             (entry_id,),
         )
@@ -140,3 +156,12 @@ async def get_entry(entry_id: int) -> dict | None:
             entry["result"] = json.loads(entry["result_json"])
             del entry["result_json"]
         return entry
+
+
+async def update_image_filename(entry_id: int, filename: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE requests SET image_filename = ? WHERE id = ?",
+            (filename, entry_id),
+        )
+        await db.commit()

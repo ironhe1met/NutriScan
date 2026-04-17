@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # Image limits
     max_image_size_mb: int = 10
     allowed_image_types: set[str] = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    # Save uploaded images to disk for history detail view
+    store_images: bool = True
 
     # Provider API keys
     anthropic_api_key: SecretStr | None = None

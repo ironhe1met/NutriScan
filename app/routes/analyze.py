@@ -1,5 +1,8 @@
+import base64
 import logging
 import time
+from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Response
 
@@ -11,6 +14,29 @@ from ..utils.json_parser import extract_and_parse_json
 
 router = APIRouter()
 logger = logging.getLogger("nutriscan")
+
+IMAGES_DIR = Path("data/images")
+_EXT_MAP = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
+
+def _save_image(image_b64: str, media_type: str) -> str | None:
+    """Save decoded image to disk, return filename or None on error."""
+    if not settings.store_images:
+        return None
+    try:
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        ext = _EXT_MAP.get(media_type, ".bin")
+        filename = f"{uuid4().hex}{ext}"
+        (IMAGES_DIR / filename).write_bytes(base64.b64decode(image_b64))
+        return filename
+    except Exception as e:
+        logger.warning("Failed to save image: %s", e)
+        return None
 
 
 def _build_fallback_chain(requested_provider: str) -> list[str]:
@@ -73,6 +99,8 @@ async def analyze(
                 elapsed_ms,
             )
 
+            image_filename = _save_image(image_b64, media_type)
+
             await log_request(
                 provider=provider_name,
                 model=model_name,
@@ -82,6 +110,7 @@ async def analyze(
                 image_size_bytes=size_bytes,
                 ingredients_count=len(result.get("ingredients", [])),
                 result_json=result,
+                image_filename=image_filename,
             )
 
             # Expose actual provider/model via response headers (doesn't break mobile JSON contract)
