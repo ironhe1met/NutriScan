@@ -2,22 +2,22 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import require_admin
+from .auth import require_admin, NotAuthenticated, not_authenticated_handler
+from .config import settings
 from .db import init_db
-from .routes import analyze, health, stats, history
+from .routes import analyze, health, stats, history, login
 
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-    ],
+    handlers=[logging.StreamHandler()],
 )
 
 
@@ -37,17 +37,26 @@ app = FastAPI(
 )
 
 app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret,
+    max_age=60 * 60 * 24 * 7,  # 7 days
+    https_only=False,
+)
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Public routes (mobile apps use these)
+app.add_exception_handler(NotAuthenticated, not_authenticated_handler)
+
+# Public routes
 app.include_router(analyze.router)
 app.include_router(health.router)
+app.include_router(login.router)
 
-# Protected routes (admin panel)
+# Protected routes
 app.include_router(stats.router, dependencies=[Depends(require_admin)])
 app.include_router(history.router, dependencies=[Depends(require_admin)])
 

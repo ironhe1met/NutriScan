@@ -7,7 +7,16 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-  .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+
+  .navbar { background: #1e293b; border-bottom: 1px solid #334155; padding: 12px 24px; display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 10; }
+  .navbar .brand { font-size: 1.2em; font-weight: 700; color: #38bdf8; margin-right: auto; letter-spacing: -0.5px; }
+  .navbar a { color: #94a3b8; text-decoration: none; padding: 8px 14px; border-radius: 8px; font-size: 0.95em; transition: all 0.15s; }
+  .navbar a:hover { color: #e2e8f0; background: #0f172a; }
+  .navbar a.active { color: #38bdf8; background: #0f172a; }
+  .navbar a.logout { color: #f87171; margin-left: 8px; }
+  .navbar a.logout:hover { background: #450a0a; }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
   h1 { font-size: 1.8em; color: #38bdf8; margin-bottom: 8px; }
   .subtitle { color: #64748b; margin-bottom: 32px; }
   .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -49,9 +58,16 @@
 </style>
 </head>
 <body>
+<nav class="navbar">
+    <div class="brand">NutriScan</div>
+    <a href="/" class="active">Test</a>
+    <a href="/history/view/all">History</a>
+    <a href="/stats/dashboard">Dashboard</a>
+    <a href="/logout" class="logout">Logout</a>
+</nav>
 <div class="container">
-  <h1>NutriScan</h1>
-  <p class="subtitle">AI food analysis — upload a photo to analyze nutrients</p>
+  <h1>Test</h1>
+  <p class="subtitle">Upload a food photo and analyze nutrients</p>
 
   <div class="controls">
     <select id="provider">

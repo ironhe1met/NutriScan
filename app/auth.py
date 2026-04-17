@@ -1,28 +1,42 @@
 import secrets
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Request, HTTPException
+from fastapi.responses import RedirectResponse
 
 from .config import settings
 
-security = HTTPBasic()
+
+class NotAuthenticated(Exception):
+    """Raised when HTML route needs redirect to login."""
 
 
-def require_admin(credentials: HTTPBasicCredentials = Depends(security)):
-    """Dependency that protects routes with Basic Auth."""
+def verify_credentials(username: str, password: str) -> bool:
     if not settings.admin_password:
-        return  # no password set = no protection (dev mode)
-
+        return True
     correct_user = secrets.compare_digest(
-        credentials.username.encode(), settings.admin_username.encode()
+        username.encode(), settings.admin_username.encode()
     )
     correct_pass = secrets.compare_digest(
-        credentials.password.encode(), settings.admin_password.get_secret_value().encode()
+        password.encode(), settings.admin_password.get_secret_value().encode()
     )
+    return correct_user and correct_pass
 
-    if not (correct_user and correct_pass):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+
+def is_authenticated(request: Request) -> bool:
+    if not settings.admin_password:
+        return True  # no password = open
+    return request.session.get("authenticated", False)
+
+
+async def require_admin(request: Request):
+    """Dependency: HTML → redirect to /login, API → 401."""
+    if is_authenticated(request):
+        return
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        raise NotAuthenticated()
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+async def not_authenticated_handler(request: Request, exc: NotAuthenticated):
+    return RedirectResponse(url="/login", status_code=303)

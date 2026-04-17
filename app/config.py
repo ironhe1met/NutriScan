@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # Admin panel auth
     admin_username: str = "admin"
     admin_password: SecretStr | None = None
+    session_secret: str = "change-me-to-random-string-in-production"
 
     # App
     debug: bool = False
