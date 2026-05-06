@@ -93,3 +93,17 @@ ctype="multipart/form-data"  len=20197  status=200
 - Daily cap відкладено: nginx без redis/memcached не вміє довгі вікна. Денний обмежувач буде в v1.1 разом з per-client API-keys у БД
 **Verified:** 50 паралельних POST з одного IP → 45 отримали 429, error.log: `limiting requests, excess: 10.958 by zone "analyze_rl"`.
 **Хто прийняв:** product owner.
+
+## R-011: API-token auth — 3-фаз rollout (без зламу прод-клієнтів)
+
+**Дата:** 2026-05-06
+**Питання:** Як ввести API-token на `/analyze/` і не зламати тих, хто вже сидить зі старою версією BroCalories?
+**Рішення:** Триетапний rollout:
+1. **Optional** — backend приймає і з токеном, і без. Без токена → лог як "anon", з токеном → tagged з `client_id`. Розробники додають токен у мобільний клієнт, релізять у Google Play.
+2. **Wait** — слідкуємо в дашборді за відсотком "anon" запитів. Чекаємо поки 95%+ юзерів оновлять додаток (~1-2 тижні з Google Play release).
+3. **Mandatory** — прибираємо backward-compat, без токена → 401. За тиждень до switch — попереджуючий log-only nginx rule, щоб бачити точний impact.
+
+**Чому:** Миттєвий mandatory зламає всіх з legacy-додатком, бо update в Google Play не миттєвий. 1-2 тижні Optional — нормальний trade-off між безпекою і UX.
+
+**Хто прийняв:** product owner.
+**Reference:** DEC-007.

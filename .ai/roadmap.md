@@ -43,6 +43,7 @@
 | Phase | Компонент | Статус |
 |-------|-----------|--------|
 | 1 | Tokens + cost stats (БД-міграція + UI cards/columns) | ⏳ pending |
+| 1 | Per-client API-token auth на `/analyze/` (3-фаз rollout: Optional → Mandatory) | ⏳ pending |
 | 1 | Per-user stats (`telegram_user_id` колонка) | ⏳ pending |
 | 2 | CSV export для History/Failed | ⏳ pending |
 | 2 | Hourly chart "today" (24 bars на дашборді) | ⏳ pending |

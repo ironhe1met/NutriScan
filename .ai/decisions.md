@@ -31,6 +31,17 @@ DEC-NNN — формальні архітектурні рішення (звор
 **Trade-off:** Аналітика собівартості стабільна; неможливо retroactively показати "якби тоді був інший прайс".
 **Reference:** R-001 у `resolved.md`.
 
+## DEC-007 — API-token rollout = 3 фази (no breaking change for live mobile)
+
+**Decision:** Введення API-token на `/analyze/` робимо у три фази:
+1. **Optional** — приймаємо і з токеном, і без (без токена → `client_id=NULL`, "anon"). Дашборд показує adoption-progress.
+2. **Wait** — ~1-2 тижні поки Google Play не розкотить нову версію BroCalories на 95%+ юзерів.
+3. **Mandatory** — без токена → 401. Перед switch включаємо warning-rule (logs only) на тиждень для точного таймстемпу.
+
+**Trade-off:** Подовжує період коли endpoint частково відкритий (1-2 тижні Optional + watch). Альтернатива — миттєвий mandatory — зламає всіх юзерів зі старою версією додатку (а нову вони не одразу оновлять).
+
+**Reference:** R-010 + R-011 у `resolved.md`.
+
 ## DEC-006 — Pipeline class = `app` (Daedalus retro-classification)
 
 **Decision:** Незважаючи на API-first ядро, класифікуємо проєкт як `app` через активний admin web-component з UX-логікою (фільтри, дашборд, drill-down).

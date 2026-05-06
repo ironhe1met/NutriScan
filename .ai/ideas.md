@@ -4,10 +4,16 @@
 
 Recommended order. Each phase = one PR.
 
-### Phase 1 — DB migration (one PR)
+### Phase 1 — DB migration + auth (one PR scope, but token rollout multi-stage)
 
 - [ ] **Tokens + cost stats.** Add columns `input_tokens`, `output_tokens`, `cost_usd` to `requests`. **Snapshot at request time** (not on-the-fly) — history doesn't get rewritten when prices change. Pricing dict per `(provider, model)` in `config.py`. If we already use Anthropic prompt caching — add `cache_read_tokens` column. **UI:** new dashboard cards (Total tokens, Total cost, Avg $/req, Cost/day), columns in By Provider/Model and By Day, `≈$` in History detail. **Old 1572 records:** leave as `—` (no token data → can't even compute with today's price).
-- [ ] **Per-user stats (Telegram).** Add `telegram_user_id` column to `requests`. Without it we can't see who burns budget or rate-limit per user.
+- [ ] **Per-client tokens (`clients` table) + API-token auth on `/analyze/`.** New table `clients(id, name, token_hash, status, created_at)`. Endpoint reads `Authorization: Bearer <token>` (or `X-API-Key` — TBD). On match → request tagged with `client_id`, also stored on `requests`.
+  - **Rollout (3 фази, без зламу прод):**
+    1. **Optional** — приймаємо і з токеном, і без. Без токена → запит проходить + `client_id=NULL` (lognemo як "anonymous"). З токеном → tagged. Дашборд показує "anon vs known" розподіл, видно прогрес адопції.
+    2. **Wait for Google Play rollout** — поки 95%+ юзерів не оновлять додаток (зазвичай 1-2 тижні з моменту release). Слідкуємо за "anon" відсотком в дашборді.
+    3. **Mandatory** — прибираємо backward-compat. Запити без токена → HTTP 401. У релізі — попереджуючий nginx-rule (logs only) за тиждень до switch, щоб мати точний таймстемп.
+  - **Перевага:** замінює "anonymous" rate-limit (30/min IP) на per-client-token rate-limit (можна різний ліміт для BroCalories / TG-bot / partners).
+- [ ] **Per-user stats (Telegram).** Add `telegram_user_id` column to `requests`. Без неї не побачимо хто з TG-користувачів спалює бюджет.
 
 ### Phase 2 — UI on top of new data
 
