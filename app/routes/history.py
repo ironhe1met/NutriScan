@@ -6,8 +6,9 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse
 
-from ..db import get_history, get_entry, count_history
+from ..db import get_history, get_entry, count_history, count_history_by_status
 from ..layout import page
+from ..utils.date_range import day_range, parse_iso_date
 
 router = APIRouter()
 
@@ -22,15 +23,6 @@ def _esc(v) -> str:
     return html.escape(str(v)) if v is not None else "-"
 
 
-def _day_range(date_str: str) -> tuple[float, float] | None:
-    """Parse YYYY-MM-DD → (start_ts, end_ts) for that local-time day."""
-    try:
-        start = datetime.fromisoformat(date_str).replace(hour=0, minute=0, second=0)
-    except ValueError:
-        return None
-    return start.timestamp(), (start + timedelta(days=1)).timestamp()
-
-
 @router.get("/history")
 async def history_api(
     limit: int = Query(100, le=500),
@@ -39,7 +31,7 @@ async def history_api(
 ):
     df = dt_end = None
     if date:
-        rng = _day_range(date)
+        rng = day_range(date)
         if rng:
             df, dt_end = rng
     entries = await get_history(limit=limit, offset=offset, date_from=df, date_to=dt_end)
@@ -58,57 +50,68 @@ async def history_image(entry_id: int):
     return FileResponse(str(image_path))
 
 
-@router.get("/history/view/all", response_class=HTMLResponse)
-async def history_list_page(
-    page_num: int = Query(1, alias="page", ge=1),
-    date: str | None = Query(None),
-):
-    per_page = 100
-    offset = (page_num - 1) * per_page
-
-    df = dt_end = None
-    date_filter_active = False
-    if date:
-        rng = _day_range(date)
-        if rng:
-            df, dt_end = rng
-            date_filter_active = True
-
-    total = await count_history(date_from=df, date_to=dt_end)
-    entries = await get_history(limit=per_page, offset=offset, date_from=df, date_to=dt_end)
-    total_pages = max(1, (total + per_page - 1) // per_page)
-
-    page_qs = f"&date={date}" if date_filter_active else ""
-    filter_banner = ""
-    if date_filter_active:
-        filter_banner = (
-            f'<div class="filter-banner">Showing analyses for <strong>{_esc(date)}</strong> '
-            f'<a href="/history/view/all">Clear filter ✕</a></div>'
-        )
-
-    if total == 0:
-        empty_msg = (
-            f"No analyses for {_esc(date)}. "
-            f'<a href="/history/view/all" style="color:#38bdf8">Show all →</a>'
-            if date_filter_active else
-            'No analyses yet. <a href="/test" style="color:#38bdf8">Upload a photo →</a>'
-        )
-        body = f"""
-<h1>History</h1>
-<p class="subtitle">All saved analyses</p>
-{filter_banner}
+SHARED_HISTORY_STYLES = """
 <style>
-  .filter-banner {{ background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #94a3b8; font-size: 0.9em; display: flex; align-items: center; gap: 12px; }}
-  .filter-banner strong {{ color: #38bdf8; }}
-  .filter-banner a {{ color: #f87171; text-decoration: none; margin-left: auto; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; font-size: 0.85em; }}
-  .filter-banner a:hover {{ border-color: #f87171; }}
-</style>
-<div style="background:#1e293b;border-radius:12px;padding:60px;text-align:center;color:#64748b">
-    {empty_msg}
-</div>
-"""
-        return page("History", "history", body)
+  .filter-banner { background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #94a3b8; font-size: 0.9em; display: flex; align-items: center; gap: 12px; }
+  .filter-banner strong { color: #38bdf8; }
+  .filter-banner a { color: #f87171; text-decoration: none; margin-left: auto; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; font-size: 0.85em; }
+  .filter-banner a:hover { border-color: #f87171; }
 
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab { background: #1e293b; color: #94a3b8; padding: 8px 16px; border-radius: 10px; text-decoration: none; font-size: 0.92em; border: 1px solid #334155; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
+  .tab:hover { color: #e2e8f0; border-color: #475569; }
+  .tab.active { color: #38bdf8; border-color: #38bdf8; background: #0f172a; }
+  .tab.active.failed { color: #f87171; border-color: #f87171; }
+  .tab .count { background: #0f172a; color: #94a3b8; padding: 1px 8px; border-radius: 999px; font-size: 0.78em; font-weight: 600; }
+  .tab.active .count { color: #f8fafc; }
+
+  table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9em; vertical-align: top; }
+  th { color: #94a3b8; font-weight: 500; background: #0f172a; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.5px; }
+  tr:last-child td { border-bottom: none; }
+  tr.clickable { cursor: pointer; transition: background 0.1s; }
+  tr.clickable:hover td { background: #273449; }
+  .thumb { width: 56px; padding: 6px 8px; }
+  .thumb img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; display: block; }
+  .thumb .no-img { width: 48px; height: 48px; background: #0f172a; border-radius: 6px; }
+  .allergens { color: #f87171; font-size: 0.85em; }
+  strong { color: #f8fafc; }
+  .badge { background: #0f172a; padding: 2px 8px; border-radius: 6px; font-size: 0.8em; color: #38bdf8; }
+
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 24px; color: #94a3b8; font-size: 0.9em; }
+  .pagination a { color: #38bdf8; text-decoration: none; padding: 8px 16px; border: 1px solid #334155; border-radius: 8px; transition: all 0.15s; }
+  .pagination a:hover { background: #1e293b; border-color: #38bdf8; }
+  .pagination a.disabled { color: #475569; pointer-events: none; border-color: #1e293b; }
+  .page-info { color: #64748b; }
+
+  .err-cell { max-width: 480px; }
+  .err-summary { color: #fca5a5; font-family: 'SF Mono', Consolas, monospace; font-size: 0.82em; line-height: 1.4; word-break: break-word; cursor: pointer; padding: 4px 0; }
+  .err-summary::-webkit-details-marker { color: #64748b; }
+  details[open] .err-summary { color: #f87171; margin-bottom: 8px; }
+  .err-full { background: #020617; border: 1px solid #334155; border-radius: 6px; padding: 10px 12px; font-family: 'SF Mono', Consolas, monospace; font-size: 0.78em; color: #fca5a5; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow: auto; }
+</style>
+"""
+
+
+def _build_tabs(active_status: str, counts: dict, qs_extra: str) -> str:
+    """qs_extra is the date filter portion like '&date=2026-05-05' (or '')."""
+    items = [
+        ("success", "Success", counts.get("success", 0), False),
+        ("failed", "Failed", counts.get("failed", 0), True),
+    ]
+    parts = []
+    for key, label, count, is_failed in items:
+        cls = "tab active" if key == active_status else "tab"
+        if is_failed and key == active_status:
+            cls += " failed"
+        href = f"/history/view/all?status={key}{qs_extra}"
+        parts.append(
+            f'<a class="{cls}" href="{href}">{label} <span class="count">{count}</span></a>'
+        )
+    return f'<div class="tabs">{"".join(parts)}</div>'
+
+
+def _render_success_rows(entries: list[dict]) -> str:
     rows = ""
     for e in entries:
         ts = _fmt_time(e["timestamp"])
@@ -116,13 +119,11 @@ async def history_list_page(
         total_data = r.get("total") or {}
         macro = total_data.get("macronutrients") or {}
         allergens = ", ".join(total_data.get("allergens", [])) or "-"
-
         img_cell = (
             f'<img src="/history/image/{e["id"]}" alt="">'
             if e.get("image_filename") else '<div class="no-img"></div>'
         )
-
-        rows += f"""<tr onclick="location.href='/history/view/{e['id']}'">
+        rows += f"""<tr class="clickable" onclick="location.href='/history/view/{e['id']}'">
             <td class="thumb">{img_cell}</td>
             <td>{_esc(ts)}</td>
             <td><strong>{_esc(e.get('dish_name'))}</strong></td>
@@ -134,13 +135,138 @@ async def history_list_page(
             <td><span class="badge">{_esc(e.get('provider'))}</span> {_esc(e.get('model'))}</td>
             <td>{_esc(e.get('response_time_ms'))}ms</td>
         </tr>"""
+    return rows
+
+
+def _render_failed_rows(entries: list[dict]) -> str:
+    rows = ""
+    for e in entries:
+        ts = _fmt_time(e["timestamp"])
+        err = e.get("error") or "(no error message recorded)"
+        # First non-empty line as the summary
+        summary_text = next((ln for ln in err.splitlines() if ln.strip()), err).strip()
+        if len(summary_text) > 140:
+            summary_text = summary_text[:140] + "…"
+        full_err = _esc(err)
+        rows += f"""<tr>
+            <td>{_esc(ts)}</td>
+            <td><span class="badge">{_esc(e.get('provider'))}</span> {_esc(e.get('model'))}</td>
+            <td>{_esc(e.get('dish_name'))}</td>
+            <td>{_esc(e.get('response_time_ms'))}ms</td>
+            <td class="err-cell">
+              <details>
+                <summary class="err-summary">{_esc(summary_text)}</summary>
+                <pre class="err-full">{full_err}</pre>
+              </details>
+            </td>
+        </tr>"""
+    return rows
+
+
+@router.get("/history/view/all", response_class=HTMLResponse)
+async def history_list_page(
+    page_num: int = Query(1, alias="page", ge=1),
+    date: str | None = Query(None),
+    date_from: str | None = Query(None, alias="from"),
+    date_to: str | None = Query(None, alias="to"),
+    status: str = Query("success"),
+):
+    if status not in ("success", "failed"):
+        status = "success"
+    per_page = 100
+    offset = (page_num - 1) * per_page
+
+    df = dt_end = None
+    filter_label = ""
+    qs_filter = ""
+
+    if date:
+        rng = day_range(date)
+        if rng:
+            df, dt_end = rng
+            filter_label = date
+            qs_filter = f"&date={date}"
+    elif date_from or date_to:
+        df_obj = parse_iso_date(date_from)
+        dt_obj = parse_iso_date(date_to)
+        df = df_obj.timestamp() if df_obj else None
+        dt_end = (dt_obj + timedelta(days=1)).timestamp() if dt_obj else None
+        if df_obj and dt_obj:
+            filter_label = f"{date_from} → {date_to}"
+        elif df_obj:
+            filter_label = f"from {date_from}"
+        elif dt_obj:
+            filter_label = f"until {date_to}"
+        qs_parts = []
+        if date_from: qs_parts.append(f"from={date_from}")
+        if date_to: qs_parts.append(f"to={date_to}")
+        qs_filter = "&" + "&".join(qs_parts) if qs_parts else ""
+
+    counts = await count_history_by_status(date_from=df, date_to=dt_end)
+    total = await count_history(date_from=df, date_to=dt_end, status=status)
+    entries = await get_history(
+        limit=per_page, offset=offset, date_from=df, date_to=dt_end, status=status,
+    )
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    qs_full = f"&status={status}{qs_filter}"
+    tabs_html = _build_tabs(status, counts, qs_filter)
+
+    filter_banner = ""
+    if filter_label:
+        filter_banner = (
+            f'<div class="filter-banner">Showing for <strong>{_esc(filter_label)}</strong> '
+            f'<a href="/history/view/all?status={status}">Clear date ✕</a></div>'
+        )
+
+    if total == 0:
+        if status == "failed":
+            empty_msg = (
+                f"No failed requests for {_esc(filter_label)}. 🎉"
+                if filter_label else
+                "No failed requests. 🎉"
+            )
+        else:
+            empty_msg = (
+                f"No analyses for {_esc(filter_label)}. "
+                f'<a href="/history/view/all" style="color:#38bdf8">Show all →</a>'
+                if filter_label else
+                'No analyses yet. <a href="/test" style="color:#38bdf8">Upload a photo →</a>'
+            )
+        body = f"""
+<h1>History</h1>
+<p class="subtitle">All saved requests</p>
+{SHARED_HISTORY_STYLES}
+{tabs_html}
+{filter_banner}
+<div style="background:#1e293b;border-radius:12px;padding:60px;text-align:center;color:#64748b">
+    {empty_msg}
+</div>
+"""
+        return page("History", "history", body)
+
+    if status == "failed":
+        table_html = f"""
+<table>
+<tr><th>Time</th><th>AI</th><th>Dish</th><th>Took</th><th>Error</th></tr>
+{_render_failed_rows(entries)}
+</table>"""
+    else:
+        table_html = f"""
+<table>
+<tr>
+    <th></th><th>Time</th><th>Dish</th><th>kcal</th><th>P</th><th>F</th><th>C</th>
+    <th>Allergens</th><th>AI</th><th>Time</th>
+</tr>
+{_render_success_rows(entries)}
+</table>"""
 
     pag = ""
     if total_pages > 1:
         prev_cls = "disabled" if page_num <= 1 else ""
         next_cls = "disabled" if page_num >= total_pages else ""
-        prev_link = f"/history/view/all?page={page_num - 1}{page_qs}" if page_num > 1 else "#"
-        next_link = f"/history/view/all?page={page_num + 1}{page_qs}" if page_num < total_pages else "#"
+        prev_link = f"/history/view/all?page={page_num - 1}{qs_full}" if page_num > 1 else "#"
+        next_link = f"/history/view/all?page={page_num + 1}{qs_full}" if page_num < total_pages else "#"
         pag = f"""
 <div class="pagination">
     <a href="{prev_link}" class="{prev_cls}">← Prev</a>
@@ -149,48 +275,19 @@ async def history_list_page(
 </div>
 """
 
-    subtitle = (
-        f"{total} analyses for {_esc(date)} — page {page_num} of {total_pages}"
-        if date_filter_active else
-        f"{total} analyses saved — page {page_num} of {total_pages}"
-    )
+    label = "failed requests" if status == "failed" else "analyses"
+    if filter_label:
+        subtitle = f"{total} {label} for {_esc(filter_label)} — page {page_num} of {total_pages}"
+    else:
+        subtitle = f"{total} {label} — page {page_num} of {total_pages}"
 
     body = f"""
 <h1>History</h1>
 <p class="subtitle">{subtitle}</p>
+{SHARED_HISTORY_STYLES}
+{tabs_html}
 {filter_banner}
-
-<style>
-  .filter-banner {{ background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #94a3b8; font-size: 0.9em; display: flex; align-items: center; gap: 12px; }}
-  .filter-banner strong {{ color: #38bdf8; }}
-  .filter-banner a {{ color: #f87171; text-decoration: none; margin-left: auto; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; font-size: 0.85em; }}
-  .filter-banner a:hover {{ border-color: #f87171; }}
-  table {{ width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }}
-  th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9em; }}
-  th {{ color: #94a3b8; font-weight: 500; background: #0f172a; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.5px; }}
-  tr:last-child td {{ border-bottom: none; }}
-  tr {{ cursor: pointer; transition: background 0.1s; }}
-  tr:hover td {{ background: #273449; }}
-  .thumb {{ width: 56px; padding: 6px 8px; }}
-  .thumb img {{ width: 48px; height: 48px; object-fit: cover; border-radius: 6px; display: block; }}
-  .thumb .no-img {{ width: 48px; height: 48px; background: #0f172a; border-radius: 6px; }}
-  .allergens {{ color: #f87171; font-size: 0.85em; }}
-  strong {{ color: #f8fafc; }}
-  .badge {{ background: #0f172a; padding: 2px 8px; border-radius: 6px; font-size: 0.8em; color: #38bdf8; }}
-  .pagination {{ display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 24px; color: #94a3b8; font-size: 0.9em; }}
-  .pagination a {{ color: #38bdf8; text-decoration: none; padding: 8px 16px; border: 1px solid #334155; border-radius: 8px; transition: all 0.15s; }}
-  .pagination a:hover {{ background: #1e293b; border-color: #38bdf8; }}
-  .pagination a.disabled {{ color: #475569; pointer-events: none; border-color: #1e293b; }}
-  .page-info {{ color: #64748b; }}
-</style>
-
-<table>
-<tr>
-    <th></th><th>Time</th><th>Dish</th><th>kcal</th><th>P</th><th>F</th><th>C</th>
-    <th>Allergens</th><th>AI</th><th>Time</th>
-</tr>
-{rows}
-</table>
+{table_html}
 {pag}
 """
     return page("History", "history", body)

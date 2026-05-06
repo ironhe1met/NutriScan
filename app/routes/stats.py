@@ -1,62 +1,27 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
 
 from ..db import get_stats
 from ..layout import page
+from ..utils.date_range import PRESETS, resolve_range
+
+
+def _drill_qs(active_preset: str, from_iso: str, to_iso: str, **extra) -> str:
+    """Build query string preserving the dashboard's date filter for drill-down links."""
+    params: dict = {}
+    if from_iso and to_iso:
+        params["from"] = from_iso
+        params["to"] = to_iso
+    elif active_preset and active_preset != "all":
+        params["range"] = active_preset
+    params.update(extra)
+    return "?" + urlencode(params) if params else ""
+
 
 router = APIRouter()
-
-PRESETS = [
-    ("today", "Today", 1),
-    ("7d", "Last 7 days", 7),
-    ("30d", "Last 30 days", 30),
-    ("90d", "Last 90 days", 90),
-    ("all", "All time", None),
-]
-
-
-def _resolve_range(
-    preset: str | None,
-    date_from: str | None,
-    date_to: str | None,
-) -> tuple[float | None, float | None, str, str, str]:
-    """Returns (from_ts, to_ts, active_preset, from_iso, to_iso).
-
-    Custom range (date_from/date_to) wins over preset. Default preset = 30d.
-    """
-    if date_from or date_to:
-        try:
-            df = datetime.fromisoformat(date_from).replace(hour=0, minute=0, second=0) if date_from else None
-        except ValueError:
-            df = None
-        try:
-            dt_end = datetime.fromisoformat(date_to).replace(hour=0, minute=0, second=0) + timedelta(days=1) if date_to else None
-        except ValueError:
-            dt_end = None
-        return (
-            df.timestamp() if df else None,
-            dt_end.timestamp() if dt_end else None,
-            "",
-            date_from or "",
-            date_to or "",
-        )
-
-    preset = preset or "30d"
-    days = next((d for k, _, d in PRESETS if k == preset), 30)
-    if days is None:
-        return None, None, "all", "", ""
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    start = today - timedelta(days=days - 1)
-    end = today + timedelta(days=1)
-    return (
-        start.timestamp(),
-        end.timestamp(),
-        preset,
-        start.date().isoformat(),
-        today.date().isoformat(),
-    )
 
 
 @router.get("/stats")
@@ -65,7 +30,7 @@ async def stats_api(
     date_from: str | None = Query(None, alias="from"),
     date_to: str | None = Query(None, alias="to"),
 ):
-    df, dt_end, *_ = _resolve_range(range_, date_from, date_to)
+    df, dt_end, *_ = resolve_range(range_, date_from, date_to)
     return await get_stats(date_from=df, date_to=dt_end)
 
 
@@ -75,7 +40,7 @@ async def stats_dashboard(
     date_from: str | None = Query(None, alias="from"),
     date_to: str | None = Query(None, alias="to"),
 ):
-    df, dt_end, active_preset, from_iso, to_iso = _resolve_range(range_, date_from, date_to)
+    df, dt_end, active_preset, from_iso, to_iso = resolve_range(range_, date_from, date_to)
     data = await get_stats(date_from=df, date_to=dt_end)
 
     chips = []
@@ -98,11 +63,15 @@ async def stats_dashboard(
 
     peak = data["peak_day"]
     peak_text = f"{peak['day']} ({peak['count']})" if peak else "—"
+
+    success_drill = "/history/view/all" + _drill_qs(active_preset, from_iso, to_iso, status="success")
+    failed_drill = "/history/view/all" + _drill_qs(active_preset, from_iso, to_iso, status="failed")
+
     cards_html = f"""
 <div class="cards">
     <div class="card"><div class="num">{data['total_requests']}</div><div class="label">Total</div></div>
-    <div class="card"><div class="num" style="color:#4ade80">{data['successful']}</div><div class="label">Success</div></div>
-    <div class="card"><div class="num" style="color:#f87171">{data['failed']}</div><div class="label">Failed</div></div>
+    <a class="card card-link" href="{success_drill}"><div class="num" style="color:#4ade80">{data['successful']}</div><div class="label">Success ↗</div></a>
+    <a class="card card-link card-failed" href="{failed_drill}"><div class="num" style="color:#f87171">{data['failed']}</div><div class="label">Failed ↗</div></a>
     <div class="card"><div class="num">{data['success_rate']}%</div><div class="label">Success Rate</div></div>
     <div class="card"><div class="num">{data['avg_response_time_ms']}</div><div class="label">Avg Response (ms)</div></div>
     <div class="card"><div class="num">{data['avg_per_day']}</div><div class="label">Avg / day</div></div>
@@ -119,20 +88,27 @@ async def stats_dashboard(
             day = d["day"]
             count = d["count"]
             successes = d["successes"]
+            failed = count - successes
             avg_ms = int(d["avg_time_ms"] or 0)
             width = round(count / max_count * 100, 1)
             success_rate = round(successes / count * 100, 1) if count else 0
+            failed_cell = (
+                f'<a class="failed-pill" href="/history/view/all?status=failed&date={day}" '
+                f'onclick="event.stopPropagation()">{failed}</a>'
+                if failed > 0 else '<span class="muted">0</span>'
+            )
             rows_day += (
-                f'<tr onclick="location.href=\'/history/view/all?date={day}\'">'
+                f'<tr class="day-row" onclick="location.href=\'/history/view/all?status=success&date={day}\'">'
                 f'<td><strong>{day}</strong></td>'
                 f'<td><div class="bar"><div class="bar-fill" style="width:{width}%"></div>'
                 f'<span class="bar-num">{count}</span></div></td>'
                 f'<td>{successes} <span class="muted">({success_rate}%)</span></td>'
+                f'<td>{failed_cell}</td>'
                 f'<td>{avg_ms} ms</td>'
                 f'</tr>'
             )
     else:
-        rows_day = '<tr><td colspan="4" class="empty">No requests in this range</td></tr>'
+        rows_day = '<tr><td colspan="5" class="empty">No requests in this range</td></tr>'
 
     rows_provider = ""
     for p in data["by_provider_model"]:
@@ -147,11 +123,14 @@ async def stats_dashboard(
     rows_recent = ""
     for r in data["recent_requests"]:
         ts = datetime.fromtimestamp(r["timestamp"]).strftime("%d.%m %H:%M")
-        status = '<span style="color:#4ade80">OK</span>' if r["success"] else '<span style="color:#f87171">ERR</span>'
+        if r["success"]:
+            status_cell = '<span style="color:#4ade80">OK</span>'
+        else:
+            status_cell = f'<a class="err-link" href="{failed_drill}">ERR ↗</a>'
         rows_recent += (
             f"<tr><td>{ts}</td><td>{r['provider']}</td><td>{r['model']}</td>"
             f"<td>{r['response_time_ms']} ms</td><td>{r.get('dish_name') or '-'}</td>"
-            f"<td>{status}</td></tr>"
+            f"<td>{status_cell}</td></tr>"
         )
     if not rows_recent:
         rows_recent = '<tr><td colspan="6" class="empty">No requests</td></tr>'
@@ -174,9 +153,17 @@ async def stats_dashboard(
   .custom-range button:hover {{ background: #7dd3fc; }}
 
   .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }}
-  .card {{ background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px 20px; }}
+  .card {{ background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px 20px; display: block; text-decoration: none; }}
   .card .num {{ font-size: 1.8em; font-weight: 700; color: #38bdf8; line-height: 1.1; }}
   .card .label {{ color: #94a3b8; font-size: 0.78em; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }}
+  .card-link {{ cursor: pointer; transition: all 0.15s; }}
+  .card-link:hover {{ border-color: #475569; background: #273449; }}
+  .card-link.card-failed:hover {{ border-color: #f87171; }}
+
+  .failed-pill {{ display: inline-block; background: #450a0a; color: #fca5a5; padding: 2px 10px; border-radius: 999px; font-size: 0.85em; font-weight: 600; text-decoration: none; min-width: 26px; text-align: center; transition: all 0.15s; }}
+  .failed-pill:hover {{ background: #7f1d1d; color: #fff; }}
+  .err-link {{ color: #f87171; text-decoration: none; font-weight: 600; font-size: 0.85em; }}
+  .err-link:hover {{ text-decoration: underline; }}
 
   table {{ width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; margin-top: 8px; }}
   th, td {{ padding: 10px 14px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.92em; }}
@@ -197,7 +184,7 @@ async def stats_dashboard(
 
 <h2>By Day ({len(by_day)})</h2>
 <table class="day-table">
-<tr><th>Day</th><th>Requests</th><th>Success</th><th>Avg time</th></tr>
+<tr><th>Day</th><th>Requests</th><th>Success</th><th>Failed</th><th>Avg time</th></tr>
 {rows_day}
 </table>
 

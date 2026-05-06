@@ -154,18 +154,45 @@ async def get_stats(
     }
 
 
+def _status_clause(status: str) -> str:
+    if status == "failed":
+        return " AND success = 0"
+    if status == "all":
+        return ""
+    return " AND success = 1 AND result_json IS NOT NULL"
+
+
 async def count_history(
     date_from: float | None = None,
     date_to: float | None = None,
+    status: str = "success",
 ) -> int:
     where_extra, params = _range_clause(date_from, date_to)
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             f"""SELECT COUNT(*) FROM requests
-                WHERE success = 1 AND result_json IS NOT NULL{where_extra}""",
+                WHERE 1=1{_status_clause(status)}{where_extra}""",
             params,
         )
         return (await cursor.fetchone())[0]
+
+
+async def count_history_by_status(
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> dict:
+    """Returns {"success": N, "failed": M} for the date range."""
+    where_extra, params = _range_clause(date_from, date_to)
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            f"""SELECT
+                  SUM(CASE WHEN success = 1 AND result_json IS NOT NULL THEN 1 ELSE 0 END) as success,
+                  SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed
+                FROM requests WHERE 1=1{where_extra}""",
+            params,
+        )
+        row = await cursor.fetchone()
+    return {"success": row[0] or 0, "failed": row[1] or 0}
 
 
 async def get_history(
@@ -173,15 +200,17 @@ async def get_history(
     offset: int = 0,
     date_from: float | None = None,
     date_to: float | None = None,
+    status: str = "success",
 ) -> list[dict]:
     where_extra, params = _range_clause(date_from, date_to)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             f"""SELECT id, timestamp, provider, model, response_time_ms,
-                       dish_name, ingredients_count, result_json, image_filename
+                       success, error, dish_name, ingredients_count,
+                       result_json, image_filename
                 FROM requests
-                WHERE success = 1 AND result_json IS NOT NULL{where_extra}
+                WHERE 1=1{_status_clause(status)}{where_extra}
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?""",
             (*params, limit, offset),
@@ -189,9 +218,9 @@ async def get_history(
         rows = []
         for row in await cursor.fetchall():
             entry = dict(row)
-            if entry["result_json"]:
+            if entry.get("result_json"):
                 entry["result"] = json.loads(entry["result_json"])
-                del entry["result_json"]
+            entry.pop("result_json", None)
             rows.append(entry)
         return rows
 
