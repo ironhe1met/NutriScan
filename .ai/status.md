@@ -45,6 +45,9 @@
 
 ## Recent activity
 
+- 2026-05-06 — v1.1 Phase 1 deployed (tokens+cost, optional Bearer, per-user TG, clients table)
+- 2026-05-06 — prod API-token created for BroCalories (id=1) — awaiting mobile app release
+
 - 2026-05-06 — nginx rate-limit на /analyze/ (30/min per IP, burst 10) — applied + verified
 - 2026-05-06 — name corrected: BloCalories → BroCalories (in .ai/ + Daedalus DB)
 
