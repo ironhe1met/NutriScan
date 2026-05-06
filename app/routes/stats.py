@@ -67,6 +67,22 @@ async def stats_dashboard(
     success_drill = "/history/view/all" + _drill_qs(active_preset, from_iso, to_iso, status="success")
     failed_drill = "/history/view/all" + _drill_qs(active_preset, from_iso, to_iso, status="failed")
 
+    # Cost / tokens formatting
+    total_tokens = data["total_input_tokens"] + data["total_output_tokens"]
+
+    def _fmt_tok(n: int) -> str:
+        if n >= 1_000_000:
+            return f"{n/1_000_000:.2f}M"
+        if n >= 1_000:
+            return f"{n/1_000:.1f}k"
+        return str(n)
+
+    total_cost_str = f"${data['total_cost_usd']:.2f}" if data['total_cost_usd'] else "—"
+    avg_cost_str = f"${data['avg_cost_usd']:.4f}" if data['avg_cost_usd'] else "—"
+    cost_per_day_str = f"${data['cost_per_day']:.2f}" if data['cost_per_day'] else "—"
+
+    anon_color = "#f87171" if data["anon_pct"] > 50 else "#fbbf24" if data["anon_pct"] > 5 else "#4ade80"
+
     cards_html = f"""
 <div class="cards">
     <div class="card"><div class="num">{data['total_requests']}</div><div class="label">Total</div></div>
@@ -77,6 +93,11 @@ async def stats_dashboard(
     <div class="card"><div class="num">{data['avg_per_day']}</div><div class="label">Avg / day</div></div>
     <div class="card"><div class="num">{data['days_active']}</div><div class="label">Days active</div></div>
     <div class="card"><div class="num" style="font-size:1.1em">{peak_text}</div><div class="label">Peak day</div></div>
+    <div class="card"><div class="num" style="color:#fbbf24">{total_cost_str}</div><div class="label">Total cost</div></div>
+    <div class="card"><div class="num" style="color:#fbbf24">{cost_per_day_str}</div><div class="label">Cost / day</div></div>
+    <div class="card"><div class="num" style="color:#fbbf24;font-size:1.4em">{avg_cost_str}</div><div class="label">Avg $ / req</div></div>
+    <div class="card"><div class="num">{_fmt_tok(total_tokens)}</div><div class="label">Total tokens</div></div>
+    <div class="card"><div class="num" style="color:{anon_color}">{data['anon_pct']}%</div><div class="label">Anon (no token)</div></div>
 </div>
 """
 
@@ -97,6 +118,10 @@ async def stats_dashboard(
                 f'onclick="event.stopPropagation()">{failed}</a>'
                 if failed > 0 else '<span class="muted">0</span>'
             )
+            day_cost = d.get("cost_usd") or 0
+            cost_cell = f"${day_cost:.4f}" if day_cost > 0 else '<span class="muted">—</span>'
+            day_tokens = (d.get("input_tokens") or 0) + (d.get("output_tokens") or 0)
+            tok_cell = _fmt_tok(day_tokens) if day_tokens > 0 else '<span class="muted">—</span>'
             rows_day += (
                 f'<tr class="day-row" onclick="location.href=\'/history/view/all?status=success&date={day}\'">'
                 f'<td><strong>{day}</strong></td>'
@@ -104,21 +129,28 @@ async def stats_dashboard(
                 f'<span class="bar-num">{count}</span></div></td>'
                 f'<td>{successes} <span class="muted">({success_rate}%)</span></td>'
                 f'<td>{failed_cell}</td>'
+                f'<td>{tok_cell}</td>'
+                f'<td>{cost_cell}</td>'
                 f'<td>{avg_ms} ms</td>'
                 f'</tr>'
             )
     else:
-        rows_day = '<tr><td colspan="5" class="empty">No requests in this range</td></tr>'
+        rows_day = '<tr><td colspan="7" class="empty">No requests in this range</td></tr>'
 
     rows_provider = ""
     for p in data["by_provider_model"]:
+        p_tokens = (p.get("input_tokens") or 0) + (p.get("output_tokens") or 0)
+        p_cost = p.get("cost_usd") or 0
         rows_provider += (
             f"<tr><td>{p['provider']}</td><td>{p['model']}</td>"
             f"<td>{p['count']}</td><td>{p['successes']}</td>"
-            f"<td>{int(p['avg_time_ms'] or 0)} ms</td></tr>"
+            f"<td>{int(p['avg_time_ms'] or 0)} ms</td>"
+            f"<td>{_fmt_tok(p_tokens) if p_tokens else '<span class=\"muted\">—</span>'}</td>"
+            f"<td>{('$%.4f' % p_cost) if p_cost else '<span class=\"muted\">—</span>'}</td>"
+            f"</tr>"
         )
     if not rows_provider:
-        rows_provider = '<tr><td colspan="5" class="empty">No data</td></tr>'
+        rows_provider = '<tr><td colspan="7" class="empty">No data</td></tr>'
 
     rows_recent = ""
     for r in data["recent_requests"]:
@@ -184,13 +216,13 @@ async def stats_dashboard(
 
 <h2>By Day ({len(by_day)})</h2>
 <table class="day-table">
-<tr><th>Day</th><th>Requests</th><th>Success</th><th>Failed</th><th>Avg time</th></tr>
+<tr><th>Day</th><th>Requests</th><th>Success</th><th>Failed</th><th>Tokens</th><th>Cost</th><th>Avg time</th></tr>
 {rows_day}
 </table>
 
 <h2>By Provider / Model</h2>
 <table>
-<tr><th>Provider</th><th>Model</th><th>Requests</th><th>Success</th><th>Avg Time</th></tr>
+<tr><th>Provider</th><th>Model</th><th>Requests</th><th>Success</th><th>Avg Time</th><th>Tokens</th><th>Cost</th></tr>
 {rows_provider}
 </table>
 

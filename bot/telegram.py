@@ -21,6 +21,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+API_TOKEN = os.getenv("BOT_API_TOKEN", "")  # API auth-token for /analyze/ (Phase-1 optional)
 ALLOWED_USERS = [int(x) for x in os.getenv("BOT_ALLOWED_USERS", "").split(",") if x.strip()]
 
 bot = Bot(token=BOT_TOKEN)
@@ -112,11 +113,14 @@ async def handle_photo(msg: Message):
 
     files = {"image": ("image.jpg", BytesIO(image_data), "image/jpeg")}
     url = f"{API_URL}/analyze/?provider={prefs['provider']}&model={prefs['model']}"
+    headers: dict[str, str] = {"X-Telegram-User-Id": str(msg.from_user.id)}
+    if API_TOKEN:
+        headers["Authorization"] = f"Bearer {API_TOKEN}"
 
     try:
         timeout = httpx.Timeout(120.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(url, files=files)
+            resp = await client.post(url, files=files, headers=headers)
 
         if resp.status_code != 200:
             await wait_msg.edit_text("Failed to analyze image.")

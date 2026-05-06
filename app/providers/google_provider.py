@@ -27,7 +27,9 @@ class GoogleProvider(AIProvider):
     def get_default_model(self) -> str:
         return "flash"
 
-    async def analyze(self, image_b64: str, media_type: str, model: str | None = None) -> str:
+    async def analyze(
+        self, image_b64: str, media_type: str, model: str | None = None,
+    ) -> tuple[str, dict]:
         model_alias = model or self.get_default_model()
         model_id = self.MODELS.get(model_alias)
         if not model_id:
@@ -50,4 +52,10 @@ class GoogleProvider(AIProvider):
                 max_output_tokens=4096,
             ),
         )
-        return response.text
+        meta = getattr(response, "usage_metadata", None)
+        usage = {
+            "input_tokens": getattr(meta, "prompt_token_count", 0) or 0,
+            "output_tokens": getattr(meta, "candidates_token_count", 0) or 0,
+            "cache_read_tokens": 0,
+        }
+        return response.text, usage

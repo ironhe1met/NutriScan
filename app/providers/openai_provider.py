@@ -23,7 +23,9 @@ class OpenAIProvider(AIProvider):
     def get_default_model(self) -> str:
         return "gpt4o"
 
-    async def analyze(self, image_b64: str, media_type: str, model: str | None = None) -> str:
+    async def analyze(
+        self, image_b64: str, media_type: str, model: str | None = None,
+    ) -> tuple[str, dict]:
         model_alias = model or self.get_default_model()
         model_id = self.MODELS.get(model_alias)
         if not model_id:
@@ -54,4 +56,9 @@ class OpenAIProvider(AIProvider):
             ],
             max_tokens=4096,
         )
-        return response.choices[0].message.content
+        usage = {
+            "input_tokens": getattr(response.usage, "prompt_tokens", 0) or 0,
+            "output_tokens": getattr(response.usage, "completion_tokens", 0) or 0,
+            "cache_read_tokens": 0,
+        }
+        return response.choices[0].message.content, usage

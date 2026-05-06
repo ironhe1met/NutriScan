@@ -123,6 +123,8 @@ def _render_success_rows(entries: list[dict]) -> str:
             f'<img src="/history/image/{e["id"]}" alt="">'
             if e.get("image_filename") else '<div class="no-img"></div>'
         )
+        cost_val = e.get("cost_usd")
+        cost_cell = f"${cost_val:.4f}" if cost_val else '<span class="muted">—</span>'
         rows += f"""<tr class="clickable" onclick="location.href='/history/view/{e['id']}'">
             <td class="thumb">{img_cell}</td>
             <td>{_esc(ts)}</td>
@@ -134,6 +136,7 @@ def _render_success_rows(entries: list[dict]) -> str:
             <td class="allergens">{_esc(allergens)}</td>
             <td><span class="badge">{_esc(e.get('provider'))}</span> {_esc(e.get('model'))}</td>
             <td>{_esc(e.get('response_time_ms'))}ms</td>
+            <td>{cost_cell}</td>
         </tr>"""
     return rows
 
@@ -256,7 +259,7 @@ async def history_list_page(
 <table>
 <tr>
     <th></th><th>Time</th><th>Dish</th><th>kcal</th><th>P</th><th>F</th><th>C</th>
-    <th>Allergens</th><th>AI</th><th>Time</th>
+    <th>Allergens</th><th>AI</th><th>Time</th><th>≈$</th>
 </tr>
 {_render_success_rows(entries)}
 </table>"""
@@ -318,6 +321,20 @@ async def history_detail_page(entry_id: int):
     elapsed = _esc(entry.get("response_time_ms"))
     img_size = entry.get("image_size_bytes")
     img_size_str = f"{img_size / 1024:.1f} KB" if img_size else "-"
+
+    in_tok = entry.get("input_tokens") or 0
+    out_tok = entry.get("output_tokens") or 0
+    cache_tok = entry.get("cache_read_tokens") or 0
+    cost_v = entry.get("cost_usd")
+    tokens_str = (
+        f"in:{in_tok} out:{out_tok}" + (f" cache:{cache_tok}" if cache_tok else "")
+        if (in_tok or out_tok) else "—"
+    )
+    cost_str = f"≈ ${cost_v:.4f}" if cost_v else "—"
+    client_id = entry.get("client_id")
+    tg_user = entry.get("telegram_user_id")
+    client_str = f"client #{client_id}" if client_id else "anon"
+    tg_str = f"tg:{tg_user}" if tg_user else ""
 
     totals_html = f"""
 <div class="totals">
@@ -425,6 +442,10 @@ async def history_detail_page(entry_id: int):
             <span>{elapsed} ms</span>
             <span>{_esc(img_size_str)}</span>
             <span>#{entry_id}</span>
+            <span>{_esc(tokens_str)}</span>
+            <span style="color:#fbbf24">{_esc(cost_str)}</span>
+            <span>{_esc(client_str)}</span>
+            {f'<span>{_esc(tg_str)}</span>' if tg_str else ''}
         </div>
         {allergens_html}
         {totals_html}

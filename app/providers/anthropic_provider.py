@@ -24,7 +24,9 @@ class AnthropicProvider(AIProvider):
     def get_default_model(self) -> str:
         return "sonnet"
 
-    async def analyze(self, image_b64: str, media_type: str, model: str | None = None) -> str:
+    async def analyze(
+        self, image_b64: str, media_type: str, model: str | None = None,
+    ) -> tuple[str, dict]:
         model_alias = model or self.get_default_model()
         model_id = self.MODELS.get(model_alias)
         if not model_id:
@@ -54,4 +56,9 @@ class AnthropicProvider(AIProvider):
                 }
             ],
         )
-        return response.content[0].text
+        usage = {
+            "input_tokens": getattr(response.usage, "input_tokens", 0) or 0,
+            "output_tokens": getattr(response.usage, "output_tokens", 0) or 0,
+            "cache_read_tokens": getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+        }
+        return response.content[0].text, usage
