@@ -4,19 +4,19 @@
 
 ## 1. Elevator Pitch
 
-> **NutriScan — це AI-сервіс детекції поживних речовин з фото страви, для мобільного додатку BloCalories (Android) та закритого Telegram-боту, який повертає JSON з інгредієнтами, вагою, калоріями і БЖУ через multi-provider AI fallback (Anthropic → OpenAI → Google).**
+> **NutriScan — це AI-сервіс детекції поживних речовин з фото страви, для мобільного додатку BroCalories (Android) та закритого Telegram-боту, який повертає JSON з інгредієнтами, вагою, калоріями і БЖУ через multi-provider AI fallback (Anthropic → OpenAI → Google).**
 
 ## 2. Суть проєкту
 
 - **Назва:** NutriScan
 - **Тип:** API-сервіс + internal admin (observability)
 - **Проблема:** користувачам мобільного calorie-трекера незручно вручну вбивати кожен прийом їжі (виписувати інгредієнти, шукати калорії, рахувати макроси). Хочуть «сфоткав → отримав готовий розклад».
-- **Валідація проблеми:** підтверджена — є реальний клієнт (BloCalories у Google Play) і активна продакшн-навантаження (1572 запити в БД станом на 2026-05-06, 1375 успішних, 197 failed).
+- **Валідація проблеми:** підтверджена — є реальний клієнт (BroCalories у Google Play) і активна продакшн-навантаження (1572 запити в БД станом на 2026-05-06, 1375 успішних, 197 failed).
 - **Рішення:** REST API `POST /analyze/` з multi-provider AI fallback (Anthropic Sonnet за замовчанням → OpenAI gpt-4o → Google Gemini). Pydantic-валідований JSON-вихід. Веб-адмінка для observability (dashboard, історія, failed-таб з повними помилками).
 
 ## 3. Цільова аудиторія
 
-- **Основна:** користувачі мобільного додатку **BloCalories** (Android, Google Play; Apple App Store не запланований). Технічний рівень — нетехнічні. Кількість — TBD (питання 🔴 Q-001).
+- **Основна:** користувачі мобільного додатку **BroCalories** (Android, Google Play; Apple App Store не запланований). Технічний рівень — нетехнічні. Кількість — TBD (питання 🔴 Q-001).
 - **Вторинна:** учасники закритого Telegram-боту (whitelist через `BOT_ALLOWED_USERS` env var). Призначений для тестування і близького кола. Кількість — десятки максимум.
 - **Внутрішня:** оператор/розробник (Євгеній + допущені email-и в `ADMIN_USERS`) — користуються адмін-панеллю для моніторингу, аналізу failed-помилок, контролю провайдерів.
 
@@ -24,7 +24,7 @@
 
 | Роль | Що може | Як автентифікується |
 |------|---------|--------------------|
-| **mobile user (BloCalories)** | відправити фото → отримати JSON | поки що БЕЗ auth (HTTP API відкритий) — питання 🔴 Q-002 |
+| **mobile user (BroCalories)** | відправити фото → отримати JSON | поки що БЕЗ auth (HTTP API відкритий) — питання 🔴 Q-002 |
 | **TG user (whitelisted)** | відправити фото боту → отримати markdown-відповідь | Telegram user_id у `BOT_ALLOWED_USERS` |
 | **admin** | повний доступ до dashboard, history, failed-таб, налаштувань | session-cookie, креди в `.env` (`ADMIN_USERNAME`/`ADMIN_PASSWORD` + `ADMIN_USERS=email:pass,…`) |
 
@@ -44,7 +44,7 @@
 
 ## 6. Що НЕ входить (свідомо)
 
-- Аутентифікація мобільних клієнтів (BloCalories шле без токена — TBD)
+- Аутентифікація мобільних клієнтів (BroCalories шле без токена — TBD)
 - Per-user статистика / історія (нема user-id у БД)
 - Rate-limiting (контроль витрат лише через провайдер-квоти)
 - Tests (`tests/` порожня)
@@ -71,7 +71,7 @@
 ## 8. Існуючі активи
 
 - **Код:** monorepo `/home/ironhelmet/projects/NutriScan/`, GitHub `ironhe1met/NutriScan`. Останній коміт `8090097`. Гілка `main` чиста.
-- **Дизайн/бренд:** мінімальний — slate-dark UI (#0f172a, #1e293b, #38bdf8 акцент) у [layout.py](app/layout.py). BloCalories — окрема торгова марка (Google Play app, не у нашому скоупі по UI).
+- **Дизайн/бренд:** мінімальний — slate-dark UI (#0f172a, #1e293b, #38bdf8 акцент) у [layout.py](app/layout.py). BroCalories — окрема торгова марка (Google Play app, не у нашому скоупі по UI).
 - **Домен:** `nutriscan.radarme.com.ua` (HTTP only, port 80). Apex `radarme.com.ua` керує Hetzner-сервером Radar-Adm.
 - **Сервер/інфра:** прод на `radar-adm` (Hetzner; OS Ubuntu 24.02; SSH `ssh root@radar-adm` без пароля; `e.chernenko` user для людської роботи з sudo). Сервіс лежить у `/opt/NutriScan`. Systemd unit-и `nutriscan.service` + `nutriscan-bot.service`.
 - **Дані для міграції:** немає (новий проєкт без legacy-даних). Поточна БД `data/stats.db` — джерело правди, бекапів окремих не налаштовано (питання 🟡 Q-006).
@@ -102,7 +102,7 @@
 | Аналог | Сильні сторони | Слабкі сторони | Чим ми краще |
 |--------|---------------|----------------|--------------|
 | MyFitnessPal scan | велика база, інтеграції | потребує barcode/штучне введення | автоматичне розпізнавання з фото без штрихкоду |
-| Calorie Mama AI | такий самий концепт photo→nutrition | пропрієтарний, нема API для third-party апп | відкритий API для нашого BloCalories |
+| Calorie Mama AI | такий самий концепт photo→nutrition | пропрієтарний, нема API для third-party апп | відкритий API для нашого BroCalories |
 | Bite AI / Foodvisor | mobile-first, добра ML | закриті екосистеми | контроль над промптом, fallback на 3 провайдери |
 
 (*Цю таблицю PRD-агент може уточнити деталями; зараз — поверхневий контекст.*)
@@ -113,11 +113,11 @@
 - **Промпт до AI:** англомовний (`SYSTEM_PROMPT` у `app/prompt.py`).
 - **Output JSON:** `dish_name`, `name` інгредієнтів — англійською (бо AI генерує англ; страви на укр/рос фотках теж описує англ).
 - **Telegram bot:** повідомлення англомовні (комбінуються з AI-output).
-- **i18n:** не реалізовано і не запланований (TG-бот для близького кола; BloCalories має власну локалізацію на mobile-стороні).
+- **i18n:** не реалізовано і не запланований (TG-бот для близького кола; BroCalories має власну локалізацію на mobile-стороні).
 
 ## 13. Монетизація
 
-- **Поточна модель:** немає прямої монетизації NutriScan. Це backend-сервіс для BloCalories (мобільний додаток). Монетизація — на стороні мобільного.
+- **Поточна модель:** немає прямої монетизації NutriScan. Це backend-сервіс для BroCalories (мобільний додаток). Монетизація — на стороні мобільного.
 - **Cost-side:** платимо AI-провайдерам за виклики (Anthropic Sonnet ~$3/M in, $15/M out + інші). Зараз **не вимірюємо** — питання плану на v1.1.
 
 ## 14. Дедлайни та ризики
@@ -144,7 +144,7 @@
 - **Продуктові (для v1.1):**
   - cost / day знаходиться в дашборді (планується)
   - cost / користувач — після впровадження user-id (планується)
-- **Бізнес:** залежать від BloCalories — поза скоупом backend-проєкту.
+- **Бізнес:** залежать від BroCalories — поза скоупом backend-проєкту.
 
 ## 16. Roadmap (скелет)
 
@@ -153,7 +153,7 @@
 | **v1.0** | Photo → JSON, multi-provider fallback, TG-бот, admin login | вже у проді | ✅ released |
 | **v1.0.x** | Dashboard date-filter + daily breakdown; History tabs Success/Failed з повним error-текстом | 2026-05-06 | ✅ released |
 | **v1.1** | Tokens + cost stats (Phase 1) → per-user (TG user_id) → CSV export → hourly chart → image-cache → alerting | TBD | 🟡 planned (див. `ideas.md`) |
-| **v1.2** | BloCalories auth + per-user history; PostgreSQL міграція; HTTPS на nginx | TBD | ⏳ будь-коли після v1.1 |
+| **v1.2** | BroCalories auth + per-user history; PostgreSQL міграція; HTTPS на nginx | TBD | ⏳ будь-коли після v1.1 |
 | **v2.0** | (TBD) — можлива інтеграція з MyFitnessPal/Apple Health/Google Fit | open | ⏳ |
 
 (детально по v1.1 — у [`ideas.md`](ideas.md))
@@ -172,7 +172,7 @@
 - **Складність:** Medium — 3 AI-провайдери, 2 типи клієнтів (mobile, TG), web admin, але одна таблиця БД, один сервер, без RBAC.
 - **Фактори:** **немає** PII (Security НЕ обовʼязковий), **немає** перформанс-NFR (Performance відкласти до v1.2 коли підемо на PostgreSQL), **є** file uploads (зображення — варто чекнути в Security якщо буде), **немає** background jobs.
 - **Наступний агент:** `prd` (по таблиці app pipeline → prd).
-- **Головний фокус для PRD:** зафіксувати use-cases для BloCalories (mobile-side контракт), для TG-бота (whitelist policies, settings persistence), для admin observability (дашборд як заміна логам).
+- **Головний фокус для PRD:** зафіксувати use-cases для BroCalories (mobile-side контракт), для TG-бота (whitelist policies, settings persistence), для admin observability (дашборд як заміна логам).
 - **Ключові ролі:** mobile_user (без auth — RED), tg_user (whitelist), admin (session-based)
 - **Ключові сутності:** `requests` (єдина таблиця-лог), `images` (на диску)
 - **Ключові інтеграції:** Anthropic / OpenAI / Google API (з fallback), Telegram Bot API

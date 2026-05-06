@@ -45,6 +45,9 @@
 
 ## Recent activity
 
+- 2026-05-06 — nginx rate-limit на /analyze/ (30/min per IP, burst 10) — applied + verified
+- 2026-05-06 — name corrected: BloCalories → BroCalories (in .ai/ + Daedalus DB)
+
 - 2026-05-06 — discovery (retro) + roadmap + ideas v1.1 — recorded
 - 2026-05-06 — v1.0.x: Failed-tab з error-text, dashboard date-filter, by-day breakdown — released
 - 2026-05-06 — admin user `elena.okhrimovych@radarme.com` додано в production

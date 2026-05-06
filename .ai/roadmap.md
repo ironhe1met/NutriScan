@@ -60,11 +60,11 @@
 
 | Компонент | Статус |
 |-----------|--------|
-| Auth для BloCalories (token-based?) | ⏳ |
+| Auth для BroCalories (token-based?) | ⏳ |
 | Per-user history (на основі mobile user_id) | ⏳ |
 | Міграція SQLite → PostgreSQL (коли write-throughput полізе) | ⏳ |
 | HTTPS на nginx (Certbot) | ⏳ |
-| Apple App Store випуск BloCalories | ❓ зовнішній фактор |
+| Apple App Store випуск BroCalories | ❓ зовнішній фактор |
 
 ---
 

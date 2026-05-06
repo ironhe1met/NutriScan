@@ -4,13 +4,13 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 
 ---
 
-## Q-001 🔴 — Скільки користувачів у BloCalories зараз і за квартал?
+## Q-001 🔴 — Скільки користувачів у BroCalories зараз і за квартал?
 
 **Контекст:** Потрібно для рішень про rate-limiting, scaling SQLite → PostgreSQL, прайс-планування AI-токенів.
 **Зараз:** прод-навантаження ~80-110 запитів/день (з усіх клієнтів сумарно).
 **Кому:** product owner.
 
-## Q-002 🔴 — Як автентифікувати запити з BloCalories до `POST /analyze/`?
+## Q-002 🔴 — Як автентифікувати запити з BroCalories до `POST /analyze/`?
 
 **Контекст:** Зараз `POST /analyze/` **відкритий** — нема API-key, нема OAuth, нема нічого. Хто завгодно з URL може спалювати наші AI-кредити. Зараз нас рятує те, що URL не публічний (нема SEO, нема reverse-engineering мобільного APK), але це обмеження «безпека через невидимість».
 **Варіанти:**
@@ -47,12 +47,12 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 **Варіанти:** rsync до іншого сервера nightly, або pg_dump якщо мігруємо на PG, або хоч tar до Hetzner Storage Box.
 **Кому:** DevOps-агент.
 
-## Q-007 ⚪ — Apple App Store випуск BloCalories?
+## Q-007 ⚪ — Apple App Store випуск BroCalories?
 
 **Контекст:** Зараз тільки Google Play (Android). Apple — не у планах "поки що" (явно сказано product owner-ом 2026-05-06).
 **Кому:** product owner — переглянути коли будуть ресурси.
 
 ## Q-008 ⚪ — Multi-tenancy для майбутніх кінцевих юзерів?
 
-**Контекст:** Якщо BloCalories буде продаватись як SaaS іншим компаніям — треба буде ізолювати дані. Зараз НЕ потрібно (один клієнт, один tenant).
+**Контекст:** Якщо BroCalories буде продаватись як SaaS іншим компаніям — треба буде ізолювати дані. Зараз НЕ потрібно (один клієнт, один tenant).
 **Кому:** product owner — стратегічне рішення на майбутнє.

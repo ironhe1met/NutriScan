@@ -22,7 +22,7 @@ DEC-NNN — формальні архітектурні рішення (звор
 
 ## DEC-004 — No auth on `POST /analyze/` (v1.0, провизорно)
 
-**Decision:** Публічний ендпоінт без auth — клієнти (BloCalories, TG-bot) шлють напряму.
+**Decision:** Публічний ендпоінт без auth — клієнти (BroCalories, TG-bot) шлють напряму.
 **Trade-off:** Хто завгодно з URL може споживати наші AI-кредити (security through obscurity). Прийнятно поки нема публічного marketing-у; v1.2 закриває (Q-002).
 
 ## DEC-005 — Cost snapshot at request time (v1.1)

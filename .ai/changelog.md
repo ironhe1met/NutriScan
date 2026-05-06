@@ -22,3 +22,9 @@
 ## 2026-05-06 — admin user added
 
 - elena.okhrimovych@radarme.com додано в `ADMIN_USERS` на проді.
+
+## 2026-05-06 — Security hardening + naming fix
+
+- ✅ Mobile client name corrected: BloCalories → BroCalories (8 files in .ai/, Daedalus DB)
+- ✅ nginx rate-limit applied on `POST /analyze/`: 30/min per IP, burst 10, max 5 concurrent. HTTP 429 on excess. Verified with 50-parallel test.
+- ✅ nginx debug log_format `analyze_debug` enabled (logs auth/api-key/app-id headers) — confirmed mobile sends NO auth headers (R-009).
