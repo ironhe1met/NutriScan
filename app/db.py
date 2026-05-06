@@ -68,35 +68,76 @@ async def log_request(
         return cursor.lastrowid
 
 
-async def get_stats() -> dict:
+def _range_clause(date_from: float | None, date_to: float | None) -> tuple[str, list]:
+    parts, params = [], []
+    if date_from is not None:
+        parts.append("timestamp >= ?")
+        params.append(date_from)
+    if date_to is not None:
+        parts.append("timestamp < ?")
+        params.append(date_to)
+    return (" AND " + " AND ".join(parts) if parts else ""), params
+
+
+async def get_stats(
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> dict:
+    where_extra, params = _range_clause(date_from, date_to)
+    base_where = "1=1" + where_extra
+
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
-        cursor = await db.execute("SELECT COUNT(*) FROM requests")
+        cursor = await db.execute(f"SELECT COUNT(*) FROM requests WHERE {base_where}", params)
         total = (await cursor.fetchone())[0]
 
-        cursor = await db.execute("SELECT COUNT(*) FROM requests WHERE success = 1")
+        cursor = await db.execute(
+            f"SELECT COUNT(*) FROM requests WHERE success = 1 AND {base_where}", params
+        )
         success_count = (await cursor.fetchone())[0]
 
         cursor = await db.execute(
-            """SELECT provider, model, COUNT(*) as count,
-                      ROUND(AVG(response_time_ms)) as avg_time_ms,
-                      SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes
-               FROM requests GROUP BY provider, model"""
+            f"""SELECT provider, model, COUNT(*) as count,
+                       ROUND(AVG(response_time_ms)) as avg_time_ms,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes
+                FROM requests WHERE {base_where}
+                GROUP BY provider, model
+                ORDER BY count DESC""",
+            params,
         )
         by_provider = [dict(row) for row in await cursor.fetchall()]
 
         cursor = await db.execute(
-            """SELECT timestamp, provider, model, response_time_ms,
-                      success, error, dish_name, ingredients_count
-               FROM requests ORDER BY timestamp DESC LIMIT 20"""
+            f"""SELECT timestamp, provider, model, response_time_ms,
+                       success, error, dish_name, ingredients_count
+                FROM requests WHERE {base_where}
+                ORDER BY timestamp DESC LIMIT 20""",
+            params,
         )
         recent = [dict(row) for row in await cursor.fetchall()]
 
         cursor = await db.execute(
-            "SELECT ROUND(AVG(response_time_ms)) FROM requests WHERE success = 1"
+            f"SELECT ROUND(AVG(response_time_ms)) FROM requests WHERE success = 1 AND {base_where}",
+            params,
         )
         avg_time = (await cursor.fetchone())[0] or 0
+
+        cursor = await db.execute(
+            f"""SELECT DATE(timestamp, 'unixepoch', 'localtime') as day,
+                       COUNT(*) as count,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+                       ROUND(AVG(response_time_ms)) as avg_time_ms
+                FROM requests WHERE {base_where}
+                GROUP BY day
+                ORDER BY day DESC""",
+            params,
+        )
+        by_day = [dict(row) for row in await cursor.fetchall()]
+
+    days_active = len(by_day)
+    avg_per_day = round(total / days_active, 1) if days_active else 0
+    peak = max(by_day, key=lambda d: d["count"]) if by_day else None
 
     return {
         "total_requests": total,
@@ -106,28 +147,44 @@ async def get_stats() -> dict:
         "avg_response_time_ms": int(avg_time),
         "by_provider_model": by_provider,
         "recent_requests": recent,
+        "by_day": by_day,
+        "days_active": days_active,
+        "avg_per_day": avg_per_day,
+        "peak_day": peak,
     }
 
 
-async def count_history() -> int:
+async def count_history(
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> int:
+    where_extra, params = _range_clause(date_from, date_to)
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "SELECT COUNT(*) FROM requests WHERE success = 1 AND result_json IS NOT NULL"
+            f"""SELECT COUNT(*) FROM requests
+                WHERE success = 1 AND result_json IS NOT NULL{where_extra}""",
+            params,
         )
         return (await cursor.fetchone())[0]
 
 
-async def get_history(limit: int = 100, offset: int = 0) -> list[dict]:
+async def get_history(
+    limit: int = 100,
+    offset: int = 0,
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> list[dict]:
+    where_extra, params = _range_clause(date_from, date_to)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            """SELECT id, timestamp, provider, model, response_time_ms,
-                      dish_name, ingredients_count, result_json, image_filename
-               FROM requests
-               WHERE success = 1 AND result_json IS NOT NULL
-               ORDER BY timestamp DESC
-               LIMIT ? OFFSET ?""",
-            (limit, offset),
+            f"""SELECT id, timestamp, provider, model, response_time_ms,
+                       dish_name, ingredients_count, result_json, image_filename
+                FROM requests
+                WHERE success = 1 AND result_json IS NOT NULL{where_extra}
+                ORDER BY timestamp DESC
+                LIMIT ? OFFSET ?""",
+            (*params, limit, offset),
         )
         rows = []
         for row in await cursor.fetchall():

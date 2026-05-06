@@ -31,9 +31,9 @@ BASE_STYLES = """
 
 def nav_html(active: str = "") -> str:
     items = [
-        ("test", "/", "Test"),
-        ("history", "/history/view/all", "History"),
         ("stats", "/stats/dashboard", "Dashboard"),
+        ("history", "/history/view/all", "History"),
+        ("test", "/test", "Test"),
     ]
     links = []
     for key, href, label in items:

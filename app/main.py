@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import require_admin, NotAuthenticated, not_authenticated_handler
@@ -60,11 +60,16 @@ app.include_router(login.router)
 app.include_router(stats.router, dependencies=[Depends(require_admin)])
 app.include_router(history.router, dependencies=[Depends(require_admin)])
 
+@app.get("/")
+async def root(_=Depends(require_admin)):
+    return RedirectResponse(url="/stats/dashboard", status_code=302)
+
+
 # Test page (protected)
 static_dir = Path(__file__).parent.parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    @app.get("/")
-    async def root(_=Depends(require_admin)):
+    @app.get("/test")
+    async def test_page(_=Depends(require_admin)):
         return FileResponse(str(static_dir / "index.html"))

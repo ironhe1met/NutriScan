@@ -1,6 +1,6 @@
 import html
 import json as _json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
@@ -22,10 +22,28 @@ def _esc(v) -> str:
     return html.escape(str(v)) if v is not None else "-"
 
 
+def _day_range(date_str: str) -> tuple[float, float] | None:
+    """Parse YYYY-MM-DD → (start_ts, end_ts) for that local-time day."""
+    try:
+        start = datetime.fromisoformat(date_str).replace(hour=0, minute=0, second=0)
+    except ValueError:
+        return None
+    return start.timestamp(), (start + timedelta(days=1)).timestamp()
+
+
 @router.get("/history")
-async def history_api(limit: int = Query(100, le=500), offset: int = Query(0, ge=0)):
-    entries = await get_history(limit=limit, offset=offset)
-    total = await count_history()
+async def history_api(
+    limit: int = Query(100, le=500),
+    offset: int = Query(0, ge=0),
+    date: str | None = Query(None),
+):
+    df = dt_end = None
+    if date:
+        rng = _day_range(date)
+        if rng:
+            df, dt_end = rng
+    entries = await get_history(limit=limit, offset=offset, date_from=df, date_to=dt_end)
+    total = await count_history(date_from=df, date_to=dt_end)
     return {"total": total, "limit": limit, "offset": offset, "entries": entries}
 
 
@@ -41,19 +59,52 @@ async def history_image(entry_id: int):
 
 
 @router.get("/history/view/all", response_class=HTMLResponse)
-async def history_list_page(page_num: int = Query(1, alias="page", ge=1)):
+async def history_list_page(
+    page_num: int = Query(1, alias="page", ge=1),
+    date: str | None = Query(None),
+):
     per_page = 100
     offset = (page_num - 1) * per_page
-    total = await count_history()
-    entries = await get_history(limit=per_page, offset=offset)
+
+    df = dt_end = None
+    date_filter_active = False
+    if date:
+        rng = _day_range(date)
+        if rng:
+            df, dt_end = rng
+            date_filter_active = True
+
+    total = await count_history(date_from=df, date_to=dt_end)
+    entries = await get_history(limit=per_page, offset=offset, date_from=df, date_to=dt_end)
     total_pages = max(1, (total + per_page - 1) // per_page)
 
+    page_qs = f"&date={date}" if date_filter_active else ""
+    filter_banner = ""
+    if date_filter_active:
+        filter_banner = (
+            f'<div class="filter-banner">Showing analyses for <strong>{_esc(date)}</strong> '
+            f'<a href="/history/view/all">Clear filter ✕</a></div>'
+        )
+
     if total == 0:
-        body = """
+        empty_msg = (
+            f"No analyses for {_esc(date)}. "
+            f'<a href="/history/view/all" style="color:#38bdf8">Show all →</a>'
+            if date_filter_active else
+            'No analyses yet. <a href="/test" style="color:#38bdf8">Upload a photo →</a>'
+        )
+        body = f"""
 <h1>History</h1>
 <p class="subtitle">All saved analyses</p>
+{filter_banner}
+<style>
+  .filter-banner {{ background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #94a3b8; font-size: 0.9em; display: flex; align-items: center; gap: 12px; }}
+  .filter-banner strong {{ color: #38bdf8; }}
+  .filter-banner a {{ color: #f87171; text-decoration: none; margin-left: auto; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; font-size: 0.85em; }}
+  .filter-banner a:hover {{ border-color: #f87171; }}
+</style>
 <div style="background:#1e293b;border-radius:12px;padding:60px;text-align:center;color:#64748b">
-    No analyses yet. <a href="/" style="color:#38bdf8">Upload a photo →</a>
+    {empty_msg}
 </div>
 """
         return page("History", "history", body)
@@ -88,8 +139,8 @@ async def history_list_page(page_num: int = Query(1, alias="page", ge=1)):
     if total_pages > 1:
         prev_cls = "disabled" if page_num <= 1 else ""
         next_cls = "disabled" if page_num >= total_pages else ""
-        prev_link = f"/history/view/all?page={page_num - 1}" if page_num > 1 else "#"
-        next_link = f"/history/view/all?page={page_num + 1}" if page_num < total_pages else "#"
+        prev_link = f"/history/view/all?page={page_num - 1}{page_qs}" if page_num > 1 else "#"
+        next_link = f"/history/view/all?page={page_num + 1}{page_qs}" if page_num < total_pages else "#"
         pag = f"""
 <div class="pagination">
     <a href="{prev_link}" class="{prev_cls}">← Prev</a>
@@ -98,11 +149,22 @@ async def history_list_page(page_num: int = Query(1, alias="page", ge=1)):
 </div>
 """
 
+    subtitle = (
+        f"{total} analyses for {_esc(date)} — page {page_num} of {total_pages}"
+        if date_filter_active else
+        f"{total} analyses saved — page {page_num} of {total_pages}"
+    )
+
     body = f"""
 <h1>History</h1>
-<p class="subtitle">{total} analyses saved — page {page_num} of {total_pages}</p>
+<p class="subtitle">{subtitle}</p>
+{filter_banner}
 
 <style>
+  .filter-banner {{ background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #94a3b8; font-size: 0.9em; display: flex; align-items: center; gap: 12px; }}
+  .filter-banner strong {{ color: #38bdf8; }}
+  .filter-banner a {{ color: #f87171; text-decoration: none; margin-left: auto; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; font-size: 0.85em; }}
+  .filter-banner a:hover {{ border-color: #f87171; }}
   table {{ width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }}
   th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9em; }}
   th {{ color: #94a3b8; font-weight: 500; background: #0f172a; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.5px; }}
