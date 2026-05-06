@@ -320,7 +320,9 @@ async def get_history(
         cursor = await db.execute(
             f"""SELECT id, timestamp, provider, model, response_time_ms,
                        success, error, dish_name, ingredients_count,
-                       result_json, image_filename
+                       result_json, image_filename,
+                       input_tokens, output_tokens, cache_read_tokens, cost_usd,
+                       client_id, telegram_user_id
                 FROM requests
                 WHERE 1=1{_status_clause(status)}{where_extra}
                 ORDER BY timestamp DESC
@@ -342,7 +344,9 @@ async def get_entry(entry_id: int) -> dict | None:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             """SELECT id, timestamp, provider, model, response_time_ms,
-                      dish_name, ingredients_count, result_json, image_filename
+                      dish_name, ingredients_count, result_json, image_filename,
+                      input_tokens, output_tokens, cache_read_tokens, cost_usd,
+                      client_id, telegram_user_id
                FROM requests WHERE id = ?""",
             (entry_id,),
         )
