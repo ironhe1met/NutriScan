@@ -42,3 +42,11 @@
 - ✅ Prod token для BroCalories згенеровано (id=1) — чекаємо реліз нової версії додатку.
 - Коміт: `56f9a26`. Deploy: deploy.sh.
 
+
+## 2026-05-06 — Roadmap expanded (v1.1.x, v1.2 web admin/settings, v1.3 tier-based)
+
+- ✅ Added v1.1.x patches: NutriScan version visible in navbar.
+- ✅ Added v1.2 scope: Web Users page (admin_users table + .env→DB migration with backward-compat); Settings page (default model, provider, MAX_IMAGE_SIZE, hot-reload).
+- ✅ Added v1.3 scope: Tier-based model selection (free → cheaper model, paid → premium per provider) with mapping config in DB and override-via-explicit-`?model=` for developers. Backward-compat preserved.
+- ✅ New questions Q-009..Q-011 (tier source, .env→DB authority, fallback tier policy).
+- ✅ Bugfix to v1.1 Phase 1 (`87e5000`): `get_history`/`get_entry` SELECT now include cost/tokens — `≈$` column shows real values.

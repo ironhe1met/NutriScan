@@ -57,17 +57,52 @@
 
 ---
 
-### v1.2 — кандидат
-
-**Мета:** auth для mobile-клієнтів і scale за межі SQLite.
+### v1.1.x — мінорні UI-патчі (швидкі)
 
 | Компонент | Статус |
 |-----------|--------|
-| Auth для BroCalories (token-based?) | ⏳ |
-| Per-user history (на основі mobile user_id) | ⏳ |
-| Міграція SQLite → PostgreSQL (коли write-throughput полізе) | ⏳ |
-| HTTPS на nginx (Certbot) | ⏳ |
-| Apple App Store випуск BroCalories | ❓ зовнішній фактор |
+| Версія NutriScan видна в навбарі (наприклад `NutriScan v2.0.0`) | ⏳ |
+| Footer з посиланням на GitHub repo | ⏳ optional |
+
+---
+
+### v1.2 — Web admin + settings + scale (candidate)
+
+**Мета:** управління адмін-юзерами через web (без правки `.env`), Settings page для дефолтів, scale за межі SQLite.
+
+| Компонент | Статус |
+|-----------|--------|
+| **Admin Users у БД** — нова таблиця `admin_users(id, email, password_hash, role, status, created_at)`. Web-UI (Users page): список, додати, видалити, скинути пароль. Backward-compat: `.env` залишається працювати як seed/fallback (мігруємо існуючих email-ів — `admin/xvviimcmxc`, `alexandr.shulga@radarme.com`, `elena.okhrimovych@radarme.com` — щоб ніхто не втратив доступ). Окремий DEC + R-NNN. | ⏳ |
+| **Settings page** — UI для конфігу (default provider, default model для бота, fallback chain, MAX_IMAGE_SIZE_MB). Збереження в нову таблицю `settings(key, value, updated_at, updated_by)`. Hot-reload без рестарту. | ⏳ |
+| **Mandatory token** на `/analyze/` (фінал rollout-у v1.1) | ⏳ |
+| Per-user history для mobile (юзер бачить свою) | ⏳ |
+| **PostgreSQL** міграція з SQLite | ⏳ trigger: >1000 req/day або >5 пишучих процесів |
+| **HTTPS на nginx** (Certbot) | ⏳ |
+| Backups `data/stats.db` + `data/images/` | ⏳ |
+| Apple App Store випуск BroCalories | ❓ external |
+
+---
+
+### v1.3 — Tier-based model selection (subscription)
+
+**Мета:** підписочна модель для BroCalories — paid юзери отримують кращі моделі, free → дешевші.
+
+**Концепція:** клієнтам (або per-user в межах клієнта) призначається tier (`free` / `paid`). Backend сам обирає модель з провайдера за tier-mapping:
+
+| Provider | `free` модель | `paid` модель |
+|---|---|---|
+| anthropic | `haiku` | `sonnet` |
+| openai | `gpt4o-mini` | `gpt4o` |
+| google | `flash-lite` | `flash` (або `pro` для preview) |
+
+| Компонент | Статус |
+|-----------|--------|
+| Колонки `tier` (free/paid) у `clients` (per-client) і `users` (per-user — для майбутньої BroCalories per-user auth) | ⏳ |
+| Tier→model mapping config у БД (Settings table) — щоб міняти без рестарту | ⏳ |
+| `/analyze/` — якщо клієнт не передає `model`, обираємо за tier. Якщо передає — лишаємо як override (для розробників/тестування). | ⏳ |
+| Fallback: при fail primary провайдера — підбираємо ту саму tier-модель з наступного провайдера. | ⏳ |
+| Dashboard: cost per tier, % free vs paid | ⏳ |
+| **Backward-compat:** дефолтна логіка (без tier у клієнта) працює як зараз — Sonnet | ⏳ |
 
 ---
 

@@ -56,3 +56,29 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 
 **Контекст:** Якщо BroCalories буде продаватись як SaaS іншим компаніям — треба буде ізолювати дані. Зараз НЕ потрібно (один клієнт, один tenant).
 **Кому:** product owner — стратегічне рішення на майбутнє.
+
+## Q-009 🟡 — Як визначається `tier` (free/paid) для BroCalories користувача?
+
+**Контекст:** v1.3 вводить tier-based model selection (paid → Sonnet, free → Haiku). Звідки backend дізнається tier конкретного запиту?
+**Варіанти:**
+- (a) **Per-client token** — окремі токени для "BroCalories free pool" і "BroCalories paid pool". Мобільний app шле відповідний токен в залежності від статусу підписки користувача. Backend дивиться на `clients.tier`.
+- (b) **Per-user auth + per-user tier** — потрібна таблиця `users` (BroCalories user-id), tier у `users.tier`. Mobile шле `Authorization: Bearer <user_token>`. Складніше, але точніше.
+- (c) **Header `X-User-Tier: free|paid`** — мобільний шле напряму. Просто, але юзер може підмінити (ризик).
+**Кому:** product owner — вирішити чи в v1.3 ми вже маємо per-user auth (тоді b), чи робимо швидко (a).
+
+## Q-010 🟡 — Адмін-юзер з `.env` після міграції в БД — що робити?
+
+**Контекст:** v1.2 переносить `ADMIN_USERS` з `.env` у БД. Якщо в `.env` залишається запис, а в БД він уже є — який джерело правди?
+**Варіанти:**
+- (a) **БД авторитетна,** `.env` — emergency fallback (читається тільки якщо БД пуста або зламана). Зміна в `.env` не впливає на activeпрод.
+- (b) **`.env` = seed на старті,** після першого деплою чистимо `.env` від паролів (лишаємо `ADMIN_BOOTSTRAP=email:pass` тільки для надзвичайних випадків).
+- (c) `.env` синкається в БД при кожному рестарті (ризик: видалив через UI → повернеться).
+**Кому:** product owner. Я б рекомендував (a).
+
+## Q-011 ⚪ — При fallback paid-юзера — теж paid модель з наступного провайдера, чи можна скотитись у free?
+
+**Контекст:** v1.3 fallback. Користувач paid → primary (anthropic/sonnet) фейлиться → fallback OpenAI. Беремо `gpt4o` (paid mapping) чи `gpt4o-mini` (cheaper)?
+**Варіанти:**
+- (a) Залишаємо tier — paid → paid модель будь-де
+- (b) Можна скотитись у free якщо paid недоступна (зекономити, але юзер може помітити погіршення якості)
+**Кому:** product owner — стратегічне рішення. Я б за (a).
