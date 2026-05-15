@@ -50,3 +50,12 @@
 - ✅ Added v1.3 scope: Tier-based model selection (free → cheaper model, paid → premium per provider) with mapping config in DB and override-via-explicit-`?model=` for developers. Backward-compat preserved.
 - ✅ New questions Q-009..Q-011 (tier source, .env→DB authority, fallback tier policy).
 - ✅ Bugfix to v1.1 Phase 1 (`87e5000`): `get_history`/`get_entry` SELECT now include cost/tokens — `≈$` column shows real values.
+
+## 2026-05-06 — Roadmap +4 ideas (default=haiku, mobile user_id, Firebase, Users page)
+
+- ✅ v1.1.x: default model = `haiku` (зараз `sonnet`) — економія ~75%, перевірити якість Q-014.
+- ✅ v1.2: mobile шле `X-User-Id` header (Firebase UID) → колонка `mobile_user_id` у `requests`.
+- ✅ v1.2: Firebase Admin SDK інтеграція + кеш `mobile_users` table (TTL 24h, async refresh).
+- ✅ v1.2: Web Users page (`/users`) — список mobile + TG юзерів зі статистикою.
+- ✅ v1.2: User detail page (`/users/<uid>`) — повна стат + історія сканів + drill-down з Recent.
+- ✅ Нові питання Q-012..Q-014 (Firebase fields, credentials storage, haiku quality risk).

@@ -61,21 +61,27 @@
 
 | Компонент | Статус |
 |-----------|--------|
-| Версія NutriScan видна в навбарі (наприклад `NutriScan v2.0.0`) | ⏳ |
+| Версія NutriScan видна в навбарі (`NutriScan v2.0.0`) | ⏳ |
+| **Default model = `haiku`** (зараз `sonnet`) — переключити для економії, перевірити якість | ⏳ |
 | Footer з посиланням на GitHub repo | ⏳ optional |
 
 ---
 
-### v1.2 — Web admin + settings + scale (candidate)
+### v1.2 — Web admin + settings + mobile users + scale (candidate)
 
-**Мета:** управління адмін-юзерами через web (без правки `.env`), Settings page для дефолтів, scale за межі SQLite.
+**Мета:** управління адмін-юзерами через web, Settings page для дефолтів, інтеграція з Firebase для розпізнавання mobile-юзерів, Users page в адмінці.
 
 | Компонент | Статус |
 |-----------|--------|
-| **Admin Users у БД** — нова таблиця `admin_users(id, email, password_hash, role, status, created_at)`. Web-UI (Users page): список, додати, видалити, скинути пароль. Backward-compat: `.env` залишається працювати як seed/fallback (мігруємо існуючих email-ів — `admin/xvviimcmxc`, `alexandr.shulga@radarme.com`, `elena.okhrimovych@radarme.com` — щоб ніхто не втратив доступ). Окремий DEC + R-NNN. | ⏳ |
-| **Settings page** — UI для конфігу (default provider, default model для бота, fallback chain, MAX_IMAGE_SIZE_MB). Збереження в нову таблицю `settings(key, value, updated_at, updated_by)`. Hot-reload без рестарту. | ⏳ |
+| **`mobile_user_id` колонка + header `X-User-Id`** — mobile шле Firebase UID разом з фотографією. | ⏳ |
+| **Firebase Admin SDK** — service account JSON у `.env`, `app/firebase.py` з функцією `get_user_profile(uid)`. | ⏳ |
+| **Кеш `mobile_users` table** — TTL 24h, async-refresh, не блокує `/analyze/`. | ⏳ |
+| **Web Users page (`/users`)** — список mobile + TG юзерів (з аватарками, email, total scans, total cost, subscription). | ⏳ |
+| **User detail page (`/users/<uid>`)** — повна стат + історія сканів + графік активності + drill-down з Recent. | ⏳ |
+| **Admin Users у БД** — нова таблиця `admin_users(id, email, password_hash, role, status, created_at)`. Web-UI: список, додати, видалити, скинути пароль. Backward-compat: `.env` як seed/fallback (мігруємо існуючих email-ів — щоб ніхто не втратив доступ). | ⏳ |
+| **Settings page** — UI для конфігу (default provider, default model, fallback chain, MAX_IMAGE_SIZE_MB). Таблиця `settings(key, value)`, hot-reload. | ⏳ |
 | **Mandatory token** на `/analyze/` (фінал rollout-у v1.1) | ⏳ |
-| Per-user history для mobile (юзер бачить свою) | ⏳ |
+| Per-user history для mobile (юзер бачить свою у мобільному додатку) | ⏳ |
 | **PostgreSQL** міграція з SQLite | ⏳ trigger: >1000 req/day або >5 пишучих процесів |
 | **HTTPS на nginx** (Certbot) | ⏳ |
 | Backups `data/stats.db` + `data/images/` | ⏳ |

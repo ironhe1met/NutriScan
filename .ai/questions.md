@@ -82,3 +82,30 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 - (a) Залишаємо tier — paid → paid модель будь-де
 - (b) Можна скотитись у free якщо paid недоступна (зекономити, але юзер може помітити погіршення якості)
 **Кому:** product owner — стратегічне рішення. Я б за (a).
+
+## Q-012 🟡 — Які саме поля з Firebase треба тягнути для mobile_users?
+
+**Контекст:** v1.2 інтегрує Firebase Admin SDK для розпізнавання BroCalories користувачів. Що саме з Firebase Auth + Firestore documentу нам треба?
+**Кандидати:**
+- `email`, `displayName`, `photoURL` — з Firebase Auth (стандартно)
+- `subscription_status` (free/paid) — мабуть у Firestore document `users/{uid}`
+- `created_at`, `last_login` — з Firebase Auth
+- Custom claims (якщо є) — для tier (free/paid)
+**Кому:** mobile-розробник BroCalories — підтвердити структуру Firestore і де лежить subscription.
+
+## Q-013 🟡 — Firebase service-account credentials — як зберігати?
+
+**Контекст:** Firebase Admin SDK потребує JSON service account з приватним ключем (~2KB). Зараз `.env` містить тільки прості key=value.
+**Варіанти:**
+- (a) Окремий файл `data/firebase-service-account.json`, шлях у `.env` (`FIREBASE_CRED_PATH`). Файл .gitignored.
+- (b) Base64-encoded JSON в одному рядку `.env` (`FIREBASE_CRED_B64=...`). Парсимо у конфіг.
+- (c) Vault / Secrets Manager — overkill для одного сервера.
+**Кому:** product owner — security trade-off. Я б за (a) як просте і явне.
+
+## Q-014 🟡 — Default model = `haiku` — чи є ризик якості?
+
+**Контекст:** Перемикаємо default з `sonnet` ($3/$15 per M) на `haiku` ($0.80/$4 per M) — економія ~75%. Але Haiku 4.5 хоч і свіжіший за Sonnet 3.5, для food vision може бути менш точним.
+**Перевірка перед перемиканням:**
+- Прогнати ~20 свіжих фоток через обидві моделі, порівняти `dish_name` і `ingredients_count` — чи Haiku видає схожу якість.
+- Або A/B на проді: 20% запитів на Haiku, моніторити failure rate і користувацький feedback.
+**Кому:** product owner — чи ризикуємо якістю заради економії, чи краще одразу tier-based (v1.3) з paid → Sonnet.

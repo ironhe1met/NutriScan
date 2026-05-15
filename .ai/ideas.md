@@ -33,10 +33,21 @@ Recommended order. Each phase = one PR.
 ## v1.1.x — мінорні UI-патчі
 
 - [ ] **Версія в навбарі.** Зараз `app/main.py` тримає `version="2.0.0"` як строку у FastAPI декларації — нікуди не виводиться. Додати в `app/layout.py:nav_html()` рядок `<span class="version">v{__version__}</span>` біля бренду. Источник правди — single constant у `app/__init__.py` або з `pyproject.toml`/git-tag. Кожен реліз — bump.
+- [ ] **Default model = `haiku`** (зараз `sonnet`). Встановити `DEFAULT_MODEL=haiku` у `.env` (або у `config.py` як default). Швидке переключення для економії — Haiku 4.5 у ~4x дешевший за Sonnet (~$0.80/M in vs $3, $4/M out vs $15). Перевірити що якість розпізнавання достатня (TBD test pass on existing dataset). При погіршенні — повертаємо Sonnet або вводимо tier-based selection (v1.3) раніше.
 
 ---
 
-## v1.2 — Web admin + settings + scale
+## v1.2 — Web admin + settings + scale + mobile users
+
+### Mobile user_id + Firebase integration + Users page
+
+- [ ] **`mobile_user_id` колонка у `requests`** (TEXT, бо Firebase UID = 28-символьний string). Mobile-app шле header `X-User-Id: <firebase_uid>` разом з фотографією у multipart POST. Записуємо в БД, прив'язуючи кожен скан до конкретного користувача.
+- [ ] **Firebase Admin SDK інтеграція.** Додаємо `firebase-admin` у `requirements.txt`. Service-account JSON кладемо в `.env` (як base64 або шлях до файлу). На старті ініціалізуємо Firebase app. Створюємо `app/firebase.py` з функцією `get_user_profile(uid) -> dict | None` що тягне Auth profile + Firestore document користувача (поля: email, displayName, subscription_status, photoURL — точний перелік уточнити з мобільним розробником, Q-012).
+- [ ] **Кеш user-data** — щоб не бити Firebase на кожен запит. Локальна таблиця `mobile_users(uid TEXT PRIMARY KEY, email, display_name, photo_url, subscription_status, raw_json TEXT, fetched_at REAL)`. TTL ~24 години. При кожному `/analyze/` запиті перевіряємо: якщо в `mobile_users` нема або застаріле — fetch from Firebase (async, не блокує response), оновлюємо.
+- [ ] **Web Users page (`/users`)** — список усіх відомих юзерів (mobile + telegram, об'єднані в одну таблицю з типом). Колонки: avatar/email/display_name (для mobile) або username/handle (для TG), total scans, total cost, last scan date, subscription status. Фільтри: тип (mobile/tg/anon), search by email/name.
+- [ ] **User detail page (`/users/<uid>`)** — повна сторінка одного юзера: профіль (Firebase data), статистика (total scans / total cost / avg cost / first scan / last scan), історія сканувань (паджинований список як History, але pre-filtered по цьому user_id), графік активності.
+- [ ] **Drill-down з Recent / by-day у дашборді** — клік на user-id → веде на `/users/<uid>`.
+- [ ] **Anonymous bucket** — запити без `mobile_user_id` і без `telegram_user_id` згрупувати як "Anonymous (legacy)" для зручності — окремий рядок у Users page що показує загальну кількість і куди вони ходили (поки не оновили додаток).
 
 ### Admin Users в БД (з .env→DB міграцією, без втрати доступу)
 
