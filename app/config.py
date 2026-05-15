@@ -5,9 +5,12 @@ from pydantic import SecretStr, field_validator
 
 
 class Settings(BaseSettings):
-    # Default AI provider and model
+    # Default AI provider and model (per-provider; aliases from MODELS dict in each provider)
     default_provider: str = "anthropic"
-    default_model: str = "sonnet"
+    default_model: str = "sonnet"  # Used by /test page only; per-provider defaults below
+    anthropic_default_model: str = "sonnet"
+    openai_default_model: str = "gpt4o"
+    google_default_model: str = "flash"
 
     # Fallback chain: if primary fails, try next in order
     fallback_providers: list[str] = ["anthropic", "openai", "google"]

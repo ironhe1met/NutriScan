@@ -25,7 +25,7 @@ class GoogleProvider(AIProvider):
         return self.MODELS
 
     def get_default_model(self) -> str:
-        return "flash"
+        return settings.google_default_model
 
     async def analyze(
         self, image_b64: str, media_type: str, model: str | None = None,
