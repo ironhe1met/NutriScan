@@ -29,7 +29,8 @@ async def init_db():
                 cache_read_tokens INTEGER,
                 cost_usd REAL,
                 client_id INTEGER,
-                telegram_user_id INTEGER
+                telegram_user_id INTEGER,
+                mobile_user_id TEXT
             )
         """)
         await db.execute("""
@@ -52,6 +53,7 @@ async def init_db():
             "ALTER TABLE requests ADD COLUMN cost_usd REAL",
             "ALTER TABLE requests ADD COLUMN client_id INTEGER",
             "ALTER TABLE requests ADD COLUMN telegram_user_id INTEGER",
+            "ALTER TABLE requests ADD COLUMN mobile_user_id TEXT",
         ]:
             try:
                 await db.execute(column_def)
@@ -78,6 +80,7 @@ async def log_request(
     cost_usd: float | None = None,
     client_id: int | None = None,
     telegram_user_id: int | None = None,
+    mobile_user_id: str | None = None,
 ) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
@@ -85,15 +88,15 @@ async def log_request(
                (timestamp, provider, model, response_time_ms, success, error,
                 dish_name, image_size_bytes, ingredients_count, result_json, image_filename,
                 input_tokens, output_tokens, cache_read_tokens, cost_usd,
-                client_id, telegram_user_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                client_id, telegram_user_id, mobile_user_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 time.time(), provider, model, response_time_ms, success,
                 error, dish_name, image_size_bytes, ingredients_count,
                 json.dumps(result_json, ensure_ascii=False) if result_json else None,
                 image_filename,
                 input_tokens, output_tokens, cache_read_tokens, cost_usd,
-                client_id, telegram_user_id,
+                client_id, telegram_user_id, mobile_user_id,
             ),
         )
         await db.commit()
@@ -184,7 +187,8 @@ async def get_stats(
 
         cursor = await db.execute(
             f"""SELECT timestamp, provider, model, response_time_ms,
-                       success, error, dish_name, ingredients_count
+                       success, error, dish_name, ingredients_count,
+                       mobile_user_id, telegram_user_id, cost_usd
                 FROM requests WHERE {base_where}
                 ORDER BY timestamp DESC LIMIT 20""",
             params,
@@ -322,7 +326,7 @@ async def get_history(
                        success, error, dish_name, ingredients_count,
                        result_json, image_filename,
                        input_tokens, output_tokens, cache_read_tokens, cost_usd,
-                       client_id, telegram_user_id
+                       client_id, telegram_user_id, mobile_user_id
                 FROM requests
                 WHERE 1=1{_status_clause(status)}{where_extra}
                 ORDER BY timestamp DESC
@@ -346,7 +350,7 @@ async def get_entry(entry_id: int) -> dict | None:
             """SELECT id, timestamp, provider, model, response_time_ms,
                       dish_name, ingredients_count, result_json, image_filename,
                       input_tokens, output_tokens, cache_read_tokens, cost_usd,
-                      client_id, telegram_user_id
+                      client_id, telegram_user_id, mobile_user_id
                FROM requests WHERE id = ?""",
             (entry_id,),
         )
@@ -367,3 +371,224 @@ async def update_image_filename(entry_id: int, filename: str):
             (filename, entry_id),
         )
         await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Users (mobile via mobile_user_id; telegram via telegram_user_id; anon)
+# ---------------------------------------------------------------------------
+
+def _user_predicate(user_type: str) -> str:
+    """SQL fragment to match the bucket. Use placeholders only when needed."""
+    if user_type == "mobile":
+        return "mobile_user_id = ?"
+    if user_type == "tg":
+        return "telegram_user_id = ?"
+    if user_type == "anon":
+        return "mobile_user_id IS NULL AND telegram_user_id IS NULL"
+    raise ValueError(f"Unknown user_type: {user_type}")
+
+
+async def list_users(
+    date_from: float | None = None,
+    date_to: float | None = None,
+    limit: int = 200,
+) -> list[dict]:
+    """Return aggregated user list across mobile, telegram, anonymous."""
+    where_extra, params = _range_clause(date_from, date_to)
+
+    rows: list[dict] = []
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Mobile users
+        cursor = await db.execute(
+            f"""SELECT mobile_user_id as uid,
+                       COUNT(*) as total,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+                       COALESCE(SUM(cost_usd), 0) as cost,
+                       MIN(timestamp) as first_ts,
+                       MAX(timestamp) as last_ts
+                FROM requests
+                WHERE mobile_user_id IS NOT NULL{where_extra}
+                GROUP BY mobile_user_id
+                ORDER BY total DESC
+                LIMIT ?""",
+            (*params, limit),
+        )
+        for r in await cursor.fetchall():
+            d = dict(r)
+            d["type"] = "mobile"
+            rows.append(d)
+
+        # Telegram users
+        cursor = await db.execute(
+            f"""SELECT CAST(telegram_user_id as TEXT) as uid,
+                       COUNT(*) as total,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+                       COALESCE(SUM(cost_usd), 0) as cost,
+                       MIN(timestamp) as first_ts,
+                       MAX(timestamp) as last_ts
+                FROM requests
+                WHERE telegram_user_id IS NOT NULL{where_extra}
+                GROUP BY telegram_user_id
+                ORDER BY total DESC
+                LIMIT ?""",
+            (*params, limit),
+        )
+        for r in await cursor.fetchall():
+            d = dict(r)
+            d["type"] = "tg"
+            rows.append(d)
+
+        # Anonymous bucket (one synthetic row)
+        cursor = await db.execute(
+            f"""SELECT COUNT(*) as total,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+                       COALESCE(SUM(cost_usd), 0) as cost,
+                       MIN(timestamp) as first_ts,
+                       MAX(timestamp) as last_ts
+                FROM requests
+                WHERE mobile_user_id IS NULL AND telegram_user_id IS NULL{where_extra}""",
+            params,
+        )
+        r = await cursor.fetchone()
+        if r and (r["total"] or 0) > 0:
+            rows.append({
+                "type": "anon",
+                "uid": "—",
+                "total": r["total"],
+                "successes": r["successes"] or 0,
+                "cost": r["cost"] or 0,
+                "first_ts": r["first_ts"],
+                "last_ts": r["last_ts"],
+            })
+
+    return rows
+
+
+async def get_user_stats(
+    user_type: str,
+    user_id: str | None,
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> dict:
+    """Aggregated stats for a single user (or anonymous bucket)."""
+    where_extra, range_params = _range_clause(date_from, date_to)
+    pred = _user_predicate(user_type)
+    params = ([user_id] if user_type != "anon" else []) + list(range_params)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        cursor = await db.execute(
+            f"""SELECT COUNT(*) as total,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+                       SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed,
+                       COALESCE(SUM(cost_usd), 0) as total_cost,
+                       COALESCE(SUM(input_tokens), 0) as input_tokens,
+                       COALESCE(SUM(output_tokens), 0) as output_tokens,
+                       MIN(timestamp) as first_ts,
+                       MAX(timestamp) as last_ts,
+                       ROUND(AVG(response_time_ms)) as avg_response_ms
+                FROM requests
+                WHERE {pred}{where_extra}""",
+            params,
+        )
+        totals = dict(await cursor.fetchone())
+
+        cursor = await db.execute(
+            f"""SELECT DATE(timestamp, 'unixepoch', 'localtime') as day,
+                       COUNT(*) as count,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+                       COALESCE(SUM(cost_usd), 0) as cost
+                FROM requests
+                WHERE {pred}{where_extra}
+                GROUP BY day
+                ORDER BY day DESC""",
+            params,
+        )
+        by_day = [dict(r) for r in await cursor.fetchall()]
+
+        cursor = await db.execute(
+            f"""SELECT provider, model,
+                       COUNT(*) as count,
+                       COALESCE(SUM(cost_usd), 0) as cost
+                FROM requests
+                WHERE {pred}{where_extra}
+                GROUP BY provider, model
+                ORDER BY count DESC""",
+            params,
+        )
+        by_provider = [dict(r) for r in await cursor.fetchall()]
+
+    total = totals.get("total") or 0
+    days_active = len(by_day)
+    return {
+        "total": total,
+        "successes": totals.get("successes") or 0,
+        "failed": totals.get("failed") or 0,
+        "success_rate": round((totals["successes"] or 0) / total * 100, 1) if total else 0,
+        "total_cost": round(totals.get("total_cost") or 0, 4),
+        "input_tokens": int(totals.get("input_tokens") or 0),
+        "output_tokens": int(totals.get("output_tokens") or 0),
+        "first_ts": totals.get("first_ts"),
+        "last_ts": totals.get("last_ts"),
+        "avg_response_ms": int(totals.get("avg_response_ms") or 0),
+        "days_active": days_active,
+        "avg_per_day": round(total / days_active, 1) if days_active else 0,
+        "by_day": by_day,
+        "by_provider": by_provider,
+    }
+
+
+async def get_user_history(
+    user_type: str,
+    user_id: str | None,
+    limit: int = 100,
+    offset: int = 0,
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> list[dict]:
+    where_extra, range_params = _range_clause(date_from, date_to)
+    pred = _user_predicate(user_type)
+    params = ([user_id] if user_type != "anon" else []) + list(range_params) + [limit, offset]
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            f"""SELECT id, timestamp, provider, model, response_time_ms,
+                       success, error, dish_name, ingredients_count,
+                       result_json, image_filename,
+                       input_tokens, output_tokens, cost_usd
+                FROM requests
+                WHERE {pred}{where_extra}
+                ORDER BY timestamp DESC
+                LIMIT ? OFFSET ?""",
+            params,
+        )
+        rows = []
+        for row in await cursor.fetchall():
+            entry = dict(row)
+            if entry.get("result_json"):
+                entry["result"] = json.loads(entry["result_json"])
+            entry.pop("result_json", None)
+            rows.append(entry)
+        return rows
+
+
+async def count_user_history(
+    user_type: str,
+    user_id: str | None,
+    date_from: float | None = None,
+    date_to: float | None = None,
+) -> int:
+    where_extra, range_params = _range_clause(date_from, date_to)
+    pred = _user_predicate(user_type)
+    params = ([user_id] if user_type != "anon" else []) + list(range_params)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            f"SELECT COUNT(*) FROM requests WHERE {pred}{where_extra}",
+            params,
+        )
+        return (await cursor.fetchone())[0]

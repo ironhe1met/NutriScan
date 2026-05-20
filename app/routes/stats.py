@@ -152,6 +152,16 @@ async def stats_dashboard(
     if not rows_provider:
         rows_provider = '<tr><td colspan="7" class="empty">No data</td></tr>'
 
+    def _user_cell(r):
+        muid = r.get("mobile_user_id")
+        tuid = r.get("telegram_user_id")
+        if muid:
+            short = f"{muid[:6]}…" if len(muid) > 10 else muid
+            return f'<a class="user-pill mobile" href="/users/mobile/{muid}" title="{muid}">{short}</a>'
+        if tuid:
+            return f'<a class="user-pill tg" href="/users/tg/{tuid}">tg:{tuid}</a>'
+        return '<a class="user-pill anon" href="/users/anon">anon</a>'
+
     rows_recent = ""
     for r in data["recent_requests"]:
         ts = datetime.fromtimestamp(r["timestamp"]).strftime("%d.%m %H:%M")
@@ -162,10 +172,11 @@ async def stats_dashboard(
         rows_recent += (
             f"<tr><td>{ts}</td><td>{r['provider']}</td><td>{r['model']}</td>"
             f"<td>{r['response_time_ms']} ms</td><td>{r.get('dish_name') or '-'}</td>"
+            f"<td>{_user_cell(r)}</td>"
             f"<td>{status_cell}</td></tr>"
         )
     if not rows_recent:
-        rows_recent = '<tr><td colspan="6" class="empty">No requests</td></tr>'
+        rows_recent = '<tr><td colspan="7" class="empty">No requests</td></tr>'
 
     body = f"""
 <h1>Dashboard</h1>
@@ -192,6 +203,11 @@ async def stats_dashboard(
   .card-link:hover {{ border-color: #475569; background: #273449; }}
   .card-link.card-failed:hover {{ border-color: #f87171; }}
 
+  .user-pill {{ display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78em; font-weight: 600; text-decoration: none; transition: all 0.15s; font-family: 'SF Mono', Consolas, monospace; }}
+  .user-pill.mobile {{ background: #2e1065; color: #c4b5fd; }}
+  .user-pill.tg {{ background: #082f49; color: #7dd3fc; }}
+  .user-pill.anon {{ background: #1e293b; color: #64748b; }}
+  .user-pill:hover {{ filter: brightness(1.3); }}
   .failed-pill {{ display: inline-block; background: #450a0a; color: #fca5a5; padding: 2px 10px; border-radius: 999px; font-size: 0.85em; font-weight: 600; text-decoration: none; min-width: 26px; text-align: center; transition: all 0.15s; }}
   .failed-pill:hover {{ background: #7f1d1d; color: #fff; }}
   .err-link {{ color: #f87171; text-decoration: none; font-weight: 600; font-size: 0.85em; }}
@@ -228,7 +244,7 @@ async def stats_dashboard(
 
 <h2>Recent Requests (last 20)</h2>
 <table>
-<tr><th>Time</th><th>Provider</th><th>Model</th><th>Time</th><th>Dish</th><th>Status</th></tr>
+<tr><th>Time</th><th>Provider</th><th>Model</th><th>Time</th><th>Dish</th><th>User</th><th>Status</th></tr>
 {rows_recent}
 </table>
 """

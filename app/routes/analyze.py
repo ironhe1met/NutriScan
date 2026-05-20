@@ -78,6 +78,7 @@ async def analyze(
     model: str | None = Query(None, description="Model alias (e.g. sonnet, gpt4o, flash)"),
     authorization: str | None = Header(None),
     x_telegram_user_id: int | None = Header(None),
+    x_user_id: str | None = Header(None),
 ):
     start = time.monotonic()
     requested_provider = provider or settings.default_provider
@@ -86,13 +87,17 @@ async def analyze(
     # Phase-1 token check (optional, anonymous allowed)
     client_id, client_name = await _resolve_client(authorization)
 
+    # Sanitize mobile user-id: trim, drop if too long (28 = Firebase UID; allow up to 64)
+    mobile_user_id = (x_user_id or "").strip()[:64] or None
+
     # Process and validate image (before any provider calls)
     image_b64, media_type, size_bytes = await process_upload(image)
     logger.info(
-        "Received image: %s, %.1f KB, type=%s, requested=%s/%s, client=%s, tg_user=%s",
+        "Received image: %s, %.1f KB, type=%s, requested=%s/%s, client=%s, tg_user=%s, mobile_user=%s",
         image.filename, size_bytes / 1024, media_type,
         requested_provider, requested_model or "default",
         client_name or "anon", x_telegram_user_id or "-",
+        mobile_user_id or "-",
     )
 
     # Try each provider in the fallback chain
@@ -159,6 +164,7 @@ async def analyze(
                 cost_usd=cost,
                 client_id=client_id,
                 telegram_user_id=x_telegram_user_id,
+                mobile_user_id=mobile_user_id,
             )
 
             # Expose actual provider/model via response headers (doesn't break mobile JSON contract)
@@ -186,6 +192,7 @@ async def analyze(
                 image_size_bytes=size_bytes,
                 client_id=client_id,
                 telegram_user_id=x_telegram_user_id,
+                mobile_user_id=mobile_user_id,
             )
             # Continue to next provider
             continue

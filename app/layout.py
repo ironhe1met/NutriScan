@@ -33,6 +33,7 @@ def nav_html(active: str = "") -> str:
     items = [
         ("stats", "/stats/dashboard", "Dashboard"),
         ("history", "/history/view/all", "History"),
+        ("users", "/users", "Users"),
         ("test", "/test", "Test"),
     ]
     links = []

@@ -333,8 +333,17 @@ async def history_detail_page(entry_id: int):
     cost_str = f"≈ ${cost_v:.4f}" if cost_v else "—"
     client_id = entry.get("client_id")
     tg_user = entry.get("telegram_user_id")
+    mob_user = entry.get("mobile_user_id")
     client_str = f"client #{client_id}" if client_id else "anon"
-    tg_str = f"tg:{tg_user}" if tg_user else ""
+    # Build user-link span: mobile UID, TG, or anon — all click through to /users/...
+    if mob_user:
+        _short = f"{mob_user[:6]}…" if len(mob_user) > 10 else mob_user
+        user_link_html = f'<a href="/users/mobile/{_esc(mob_user)}" style="color:#c4b5fd">mobile:{_esc(_short)}</a>'
+    elif tg_user:
+        user_link_html = f'<a href="/users/tg/{tg_user}" style="color:#7dd3fc">tg:{tg_user}</a>'
+    else:
+        user_link_html = '<a href="/users/anon" style="color:#94a3b8">anon</a>'
+    tg_str = ""  # legacy: now rendered via user_link_html
 
     totals_html = f"""
 <div class="totals">
@@ -445,7 +454,7 @@ async def history_detail_page(entry_id: int):
             <span>{_esc(tokens_str)}</span>
             <span style="color:#fbbf24">{_esc(cost_str)}</span>
             <span>{_esc(client_str)}</span>
-            {f'<span>{_esc(tg_str)}</span>' if tg_str else ''}
+            <span>{user_link_html}</span>
         </div>
         {allergens_html}
         {totals_html}

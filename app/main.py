@@ -11,7 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .auth import require_admin, NotAuthenticated, not_authenticated_handler
 from .config import settings
 from .db import init_db
-from .routes import analyze, health, stats, history, login
+from .routes import analyze, health, stats, history, login, users
 
 
 logging.basicConfig(
@@ -59,6 +59,7 @@ app.include_router(login.router)
 # Protected routes
 app.include_router(stats.router, dependencies=[Depends(require_admin)])
 app.include_router(history.router, dependencies=[Depends(require_admin)])
+app.include_router(users.router, dependencies=[Depends(require_admin)])
 
 @app.get("/")
 async def root(_=Depends(require_admin)):
