@@ -14,38 +14,7 @@ X-User-Id: <firebase_uid>
 ```
 
 де `<firebase_uid>` — це `FirebaseAuth.instance.currentUser?.uid` (28-символьна строка).
-
-### Як виглядає повний HTTP-запит
-
-Це для розуміння контракту — те, що ваш Flutter `http.post` фактично шле по мережі. **До** (як зараз):
-
-```http
-POST /analyze/ HTTP/1.1
-Host: nutriscan.radarme.com.ua
-Content-Type: multipart/form-data; boundary=----dart-boundary-xxx
-Content-Length: 20197
-
-------dart-boundary-xxx
-Content-Disposition: form-data; name="image"; filename="food.jpg"
-Content-Type: image/jpeg
-
-<binary image bytes>
-------dart-boundary-xxx--
-```
-
-**Після** (треба):
-
-```http
-POST /analyze/ HTTP/1.1
-Host: nutriscan.radarme.com.ua
-X-User-Id: 7Bx9zP3mKqY8wNsA2fLgVcEhRtUi    ← єдина зміна
-Content-Type: multipart/form-data; boundary=----dart-boundary-xxx
-Content-Length: 20197
-
-<same body>
-```
-
-Тобто буквально **один рядок** у HTTP-headers, body не міняється, відповідь не міняється.
+Body запиту і JSON-відповідь не міняються — тільки один новий header.
 
 ### Приклад на Dart / Flutter
 
