@@ -19,7 +19,7 @@ from ..db import (
 )
 from ..firebase import get_user_profile as fb_get_user_profile, is_enabled as fb_is_enabled, get_init_error as fb_init_error
 from ..layout import page
-from ..utils.date_range import PRESETS, resolve_range
+from ..utils.date_range import PRESETS, resolve_range, day_range
 
 logger = logging.getLogger("nutriscan.users")
 router = APIRouter()
@@ -494,8 +494,9 @@ async def users_mobile_refresh(uid: str):
 @router.get("/users/anon", response_class=HTMLResponse)
 async def users_anon_detail(
     range_: str | None = Query(None, alias="range"),
+    date: str | None = Query(None),
 ):
-    return await _render_user_detail("anon", None, range_)
+    return await _render_user_detail("anon", None, range_, date)
 
 
 @router.get("/users/{user_type}/{user_id}", response_class=HTMLResponse)
@@ -503,14 +504,31 @@ async def users_detail_page(
     user_type: str,
     user_id: str,
     range_: str | None = Query(None, alias="range"),
+    date: str | None = Query(None),
 ):
     if user_type not in ("mobile", "tg"):
         raise HTTPException(status_code=404, detail="Unknown user type")
-    return await _render_user_detail(user_type, user_id, range_)
+    return await _render_user_detail(user_type, user_id, range_, date)
 
 
-async def _render_user_detail(user_type: str, user_id: str | None, range_: str | None) -> HTMLResponse:
-    df, dt_end, active_preset, _, _ = resolve_range(range_, None, None)
+async def _render_user_detail(
+    user_type: str,
+    user_id: str | None,
+    range_: str | None,
+    date: str | None = None,
+) -> HTMLResponse:
+    # Single-day filter takes precedence over range preset
+    if date:
+        rng = day_range(date)
+        if rng:
+            df, dt_end = rng
+            active_preset = ""
+        else:
+            date = None  # invalid date — fall back to preset
+            df, dt_end, active_preset, _, _ = resolve_range(range_, None, None)
+    else:
+        df, dt_end, active_preset, _, _ = resolve_range(range_, None, None)
+
     stats = await get_user_stats(user_type, user_id, date_from=df, date_to=dt_end)
 
     # Recent 50 scans for this user (no separate pagination yet)
@@ -539,7 +557,11 @@ async def _render_user_detail(user_type: str, user_id: str | None, range_: str |
 </div>
 """
 
-    # by_day
+    # by_day — rows clickable → ?date=<day> (filters page to single-day)
+    base_path = (
+        "/users/anon" if user_type == "anon"
+        else f"/users/{user_type}/{user_id}"
+    )
     by_day = stats["by_day"]
     by_day_rows = ""
     if by_day:
@@ -547,8 +569,10 @@ async def _render_user_detail(user_type: str, user_id: str | None, range_: str |
         for d in by_day:
             width = round(d["count"] / max_count * 100, 1)
             cost = f'${d["cost"]:.4f}' if d["cost"] else '—'
+            href = f"{base_path}?date={d['day']}"
             by_day_rows += (
-                f'<tr><td><strong>{d["day"]}</strong></td>'
+                f'<tr class="clickable" onclick="location.href=\'{href}\'">'
+                f'<td><strong>{d["day"]}</strong></td>'
                 f'<td><div class="bar"><div class="bar-fill" style="width:{width}%"></div>'
                 f'<span class="bar-num">{d["count"]}</span></div></td>'
                 f'<td>{d["successes"]}</td>'
@@ -556,6 +580,20 @@ async def _render_user_detail(user_type: str, user_id: str | None, range_: str |
             )
     else:
         by_day_rows = '<tr><td colspan="4" class="empty">No data</td></tr>'
+
+    # date filter banner (shown when ?date=YYYY-MM-DD is active)
+    date_banner = ""
+    if date:
+        date_banner = (
+            f'<div style="background:#1e293b;border:1px solid #38bdf8;border-radius:10px;'
+            f'padding:10px 14px;margin-bottom:16px;color:#94a3b8;font-size:0.9em;'
+            f'display:flex;align-items:center;gap:12px">'
+            f'Showing for <strong style="color:#38bdf8">{_esc(date)}</strong> only — '
+            f'all cards / Recent are scoped to this day.'
+            f'<a href="{base_path}" style="color:#f87171;text-decoration:none;margin-left:auto;'
+            f'padding:4px 10px;border-radius:6px;border:1px solid #334155;font-size:0.85em">'
+            f'Clear day ✕</a></div>'
+        )
 
     # by_provider
     by_prov_rows = ""
@@ -604,7 +642,8 @@ async def _render_user_detail(user_type: str, user_id: str | None, range_: str |
 {_firebase_status_banner()}
 {profile_card_html}
 
-{_filter_bar(active_preset)}
+{_filter_bar(active_preset) if not date else ""}
+{date_banner}
 {cards_html}
 
 <h2>By Day ({len(by_day)})</h2>
