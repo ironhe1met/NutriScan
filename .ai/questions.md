@@ -118,3 +118,12 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 - (b) **Firebase Auth custom claims** — `auth.get_user(uid).custom_claims["tier"]` (теж читається через наш SA)
 - (c) **RevenueCat API напряму** — нам треба окремий RevenueCat API key, окрема залежність, більше складності
 **Кому:** mobile-розробник BroCalories. Питання вже в [`firebase-integration-brief.md`](firebase-integration-brief.md), додатково підкреслити RevenueCat.
+
+## Q-016 ⚪ — Apple iOS юзери у Firebase — чи є вже iOS-клієнт?
+
+**Контекст:** Закешували 10 перших юзерів з Firebase Auth (2026-05-20) — серед них кілька з `*@privaterelay.appleid.com` (Apple Hide My Email). Це означає що користувачі логінилися через Apple ID, тобто iOS-клієнт існує і використовується. Це суперечить R-007 ("Apple App Store не запланований").
+**Варіанти:**
+- (a) iOS-версія BroCalories вже випущена у App Store — треба оновити R-007 і додати iOS у документацію
+- (b) Тестові акаунти від команди (хтось тестував iOS-клієнт у dev)
+- (c) Apple Sign-In доступне і на Android-додатку (Apple дозволяє)
+**Кому:** mobile-розробник BroCalories — підтвердити.
