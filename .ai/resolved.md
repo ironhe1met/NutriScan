@@ -117,3 +117,50 @@ ctype="multipart/form-data"  len=20197  status=200
 - **Project ID:** `calorietracker-a194c`
 - **Service account email:** `firebase-adminsdk-fbsvc@calorietracker-a194c.iam.gserviceaccount.com`
 **Хто прийняв:** product owner (доступ є, плановано згенерувати private key).
+
+## R-013: Firestore `users/{uid}` структура (BroCalories / CalorieTracker)
+
+**Дата:** 2026-05-20
+**Підстава:** Прямий запит до Firestore через service account `nutriscan-readonly` (Cloud Datastore Viewer), приклад документа Nightman Cometh.
+
+**Колекції в Firestore проєкту:**
+- `users` — профілі юзерів (см. поля нижче)
+- `meals` — записи їжі (можливо містить історію сканів NutriScan, але треба перевірити)
+- `waters` — записи води
+- `weights` — історія зважувань
+- `ff_push_notifications`, `push_messages` — пуш-сервіси
+- (FlutterFlow `ff_*` префікс → додаток на FlutterFlow, генерує Flutter код)
+
+**Поля `users/{uid}`:**
+| Поле | Тип | Призначення |
+|---|---|---|
+| `uid` | string | дублікат Firebase UID |
+| `email` | string | дублікат з Firebase Auth |
+| `display_name` | string | те саме |
+| `photo_url` | string | те саме |
+| `created_time` | timestamp | дата реєстрації |
+| `last_active_timestamp` | timestamp | остання активність |
+| `timezone` | string | "America/Chicago", "Europe/Kyiv" і т.д. |
+| `gender` | string | "male" / (мабуть і інші — `female`, `other`) |
+| `age` | int | вік |
+| `height` | float | зріст (см якщо `is_unitSystem_metric` — true) |
+| `weight` | float | вага старт |
+| `current_weight` | float | поточна вага |
+| `target_weight` | float | цільова вага |
+| `is_unitSystem_metric` | bool | метричні чи imperial |
+| `activity_level` | string | "Sedentary", "Moderately Active", "Active", "Very Active" |
+| `main_goal` | string | "Maintain weight", "Lose weight", "Gain weight" |
+| `carbs` | float | частка вуглеводів у macro split (0.0-1.0) |
+| `proteins` | float | частка білка |
+| `fats` | float | частка жирів |
+| `Questionaries_was_completed` | bool | пройшов онбординг (camelCase mix — note quirk) |
+| `is_plan_activated` | bool | **ймовірне джерело tier — true=paid, false=free** (Q-017) |
+| `allow_notification` | bool | дозволено пуш |
+| `was_water_added_today` | bool | прапор для воду-tracking |
+
+**Використання для NutriScan:**
+- v1.2.0b (поточний): тягнемо все, показуємо у `/users/<uid>` сторінці як expandable Firestore block
+- v1.3 (tier-based models): використати `is_plan_activated` як tier (після підтвердження — Q-017)
+- v1.x (analytics): можемо групувати юзерів за gender/age/main_goal для маркетингу
+
+**Хто прийняв:** confirmed by direct Firestore query 2026-05-20.

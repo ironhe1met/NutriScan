@@ -127,3 +127,12 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 - (b) Тестові акаунти від команди (хтось тестував iOS-клієнт у dev)
 - (c) Apple Sign-In доступне і на Android-додатку (Apple дозволяє)
 **Кому:** mobile-розробник BroCalories — підтвердити.
+
+## Q-017 🟡 — `is_plan_activated` чи RevenueCat — джерело subscription для v1.3 tier?
+
+**Контекст:** У Firestore `users/{uid}` є поле `is_plan_activated: bool`. На проєкті також SA `revenuecat-brocalorie@…` — отже RevenueCat інтегровано. Можливі сценарії:
+- (a) **`is_plan_activated` синхронізується RevenueCat-webhook-ом** — тоді нам досить читати з Firestore (вже працює, нічого додавати). Найпростіше.
+- (b) `is_plan_activated` — це щось інше (наприклад, активація онбординг-плану, чи trial), а реальний subscription статус живе тільки в RevenueCat. Тоді нам треба окремий RevenueCat API integration.
+- (c) Обидва існують, але `is_plan_activated` оновлюється з затримкою або не для всіх tier-рівнів (free / premium / family / etc).
+
+**Кому:** mobile-розробник BroCalories — підтвердити що `is_plan_activated == subscription tier`.
