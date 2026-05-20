@@ -164,3 +164,17 @@ ctype="multipart/form-data"  len=20197  status=200
 - v1.x (analytics): можемо групувати юзерів за gender/age/main_goal для маркетингу
 
 **Хто прийняв:** confirmed by direct Firestore query 2026-05-20.
+
+## R-014: BroCalories — крос-платформа (Android + iOS), R-007 SUPERSEDED
+
+**Дата:** 2026-05-20
+**Питання:** Чи є iOS-клієнт BroCalories? (R-007 раніше казало "ні")
+**Рішення:** **Є обидва.** Flutter додаток (FlutterFlow-built), випущений і в Google Play, і в Apple App Store. Це підтверджено:
+1. Знахідкою юзерів з `*@privaterelay.appleid.com` (Apple Hide My Email) у Firebase Auth
+2. Прямим підтвердженням від product owner (2026-05-20)
+**Naслідки:**
+- **R-007 SUPERSEDED** — Apple App Store вже випущений, не "не у планах"
+- **Q-007 CLOSED** — питання було про "чи буде iOS", відповідь — вже є
+- Документація і брифи мають згадувати обидві платформи
+- При тестуванні треба врахувати iOS-специфіку (Apple Sign-In дає specific email формат, treat as normal)
+**Хто прийняв:** product owner.
