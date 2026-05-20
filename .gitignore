@@ -24,3 +24,8 @@ Thumbs.db
 
 # Secrets
 .env
+*firebase*.json
+*service-account*.json
+*-adminsdk-*.json
+*credentials*.json
+calorietracker-*.json

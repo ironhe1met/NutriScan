@@ -109,3 +109,12 @@ Priority: 🔴 high (blocks architecture/security decisions) · 🟡 medium (imp
 - Прогнати ~20 свіжих фоток через обидві моделі, порівняти `dish_name` і `ingredients_count` — чи Haiku видає схожу якість.
 - Або A/B на проді: 20% запитів на Haiku, моніторити failure rate і користувацький feedback.
 **Кому:** product owner — чи ризикуємо якістю заради економії, чи краще одразу tier-based (v1.3) з paid → Sonnet.
+
+## Q-015 🟡 — Subscription status — у Firestore чи у RevenueCat?
+
+**Контекст:** На скріншоті GCP Service Accounts видно SA `revenuecat-brocalorie@calorietracker-a194c.iam.gserviceaccount.com` — отже підписки BroCalories керуються через **RevenueCat**, а не безпосередньо у Firestore. Для v1.3 (tier-based models) нам треба десь брати `subscription_tier` (free / paid).
+**Варіанти джерела:**
+- (a) **Firestore field** що синхронізується з RevenueCat через webhook (тоді ми просто читаємо `users/{uid}.subscription_tier` через наш read-only SA — нічого додаткового)
+- (b) **Firebase Auth custom claims** — `auth.get_user(uid).custom_claims["tier"]` (теж читається через наш SA)
+- (c) **RevenueCat API напряму** — нам треба окремий RevenueCat API key, окрема залежність, більше складності
+**Кому:** mobile-розробник BroCalories. Питання вже в [`firebase-integration-brief.md`](firebase-integration-brief.md), додатково підкреслити RevenueCat.

@@ -107,3 +107,13 @@ ctype="multipart/form-data"  len=20197  status=200
 
 **Хто прийняв:** product owner.
 **Reference:** DEC-007.
+
+## R-012: Firebase project — назва і Project ID
+
+**Дата:** 2026-05-20
+**Питання:** Як називається Firebase-проєкт BroCalories і який Project ID?
+**Рішення:**
+- **Project name:** `CalorieTracker` (інтенціонально — це Firebase-проєкт; "BroCalories" — це бренд мобільного додатку в Google Play)
+- **Project ID:** `calorietracker-a194c`
+- **Service account email:** `firebase-adminsdk-fbsvc@calorietracker-a194c.iam.gserviceaccount.com`
+**Хто прийняв:** product owner (доступ є, плановано згенерувати private key).
