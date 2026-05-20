@@ -13,33 +13,19 @@
 X-User-Id: <firebase_uid>
 ```
 
-де `<firebase_uid>` — це `FirebaseAuth.instance.currentUser?.uid` (28-символьна строка).
-Body запиту і JSON-відповідь не міняються — тільки один новий header.
+де `<firebase_uid>` — це поточний UID юзера з Firebase Authentication (28-символьна строка). Body запиту і JSON-відповідь не міняються — тільки один новий header.
 
-### Приклад на Dart / Flutter
+### Як виглядає реальний запит (curl)
 
-```dart
-final uid = FirebaseAuth.instance.currentUser?.uid;
-
-final response = await http.post(
-  Uri.parse('https://nutriscan.radarme.com.ua/analyze/'),
-  headers: {
-    if (uid != null) 'X-User-Id': uid,
-    // інші headers як були
-  },
-  body: ...,  // multipart image як зараз
-);
-```
-
-### Приклад через curl (для тестування з терміналу)
-
-Якщо хочете перевірити прямо з терміналу, без перебудови додатку — скопіюйте і запустіть, замінивши `<UID>` і шлях до фотки:
+Це для тестування з терміналу або як reference нашого API-контракту. Замініть UID і шлях до фотки на свої:
 
 ```bash
 curl -X POST https://nutriscan.radarme.com.ua/analyze/ \
   -H "X-User-Id: 7Bx9zP3mKqY8wNsA2fLgVcEhRtUi" \
   -F "image=@/path/to/food.jpg"
 ```
+
+Як реалізувати цей header у вашому стеку — на ваш розсуд (Flutter, FlutterFlow, нативно — без різниці).
 
 Відповідь — звичайний JSON (як зараз приходить у ваш додаток):
 
