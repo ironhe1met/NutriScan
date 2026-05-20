@@ -220,7 +220,12 @@ async def get_stats(
                        ROUND(AVG(response_time_ms)) as avg_time_ms,
                        COALESCE(SUM(input_tokens), 0) as input_tokens,
                        COALESCE(SUM(output_tokens), 0) as output_tokens,
-                       COALESCE(SUM(cost_usd), 0) as cost_usd
+                       COALESCE(SUM(cost_usd), 0) as cost_usd,
+                       COUNT(DISTINCT COALESCE(
+                           mobile_user_id,
+                           'tg:' || CAST(telegram_user_id AS TEXT),
+                           'anon'
+                       )) as unique_users
                 FROM requests WHERE {base_where}
                 GROUP BY day
                 ORDER BY day DESC""",

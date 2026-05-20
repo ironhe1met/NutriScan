@@ -6,7 +6,10 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse
 
-from ..db import get_history, get_entry, count_history, count_history_by_status
+from ..db import (
+    get_history, get_entry, count_history, count_history_by_status,
+    get_cached_mobile_users,
+)
 from ..layout import page
 from ..utils.date_range import day_range, parse_iso_date
 
@@ -77,6 +80,14 @@ SHARED_HISTORY_STYLES = """
   .allergens { color: #f87171; font-size: 0.85em; }
   strong { color: #f8fafc; }
   .badge { background: #0f172a; padding: 2px 8px; border-radius: 6px; font-size: 0.8em; color: #38bdf8; }
+  .user-cell { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 2px 6px; border-radius: 6px; transition: background 0.1s; max-width: 180px; }
+  .user-cell:hover { background: #0f172a; }
+  .user-cell .user-name { font-size: 0.85em; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #0f172a; }
+  .mini-avatar-initial { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.7em; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .mini-avatar-initial.mobile { background: #8b5cf6; }
+  .mini-avatar-initial.tg { background: #0ea5e9; }
+  .mini-avatar-initial.anon { background: #475569; }
 
   .pagination { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 24px; color: #94a3b8; font-size: 0.9em; }
   .pagination a { color: #38bdf8; text-decoration: none; padding: 8px 16px; border: 1px solid #334155; border-radius: 8px; transition: all 0.15s; }
@@ -111,7 +122,44 @@ def _build_tabs(active_status: str, counts: dict, qs_extra: str) -> str:
     return f'<div class="tabs">{"".join(parts)}</div>'
 
 
-def _render_success_rows(entries: list[dict]) -> str:
+def _user_cell_for_entry(e: dict, mobile_profiles: dict[str, dict]) -> str:
+    """Render the User column for one entry: avatar + name (mobile w/ Firebase) or tg id or anon.
+
+    onclick uses event.stopPropagation so it doesn't trigger the row-level
+    navigation to /history/view/<id>.
+    """
+    muid = e.get("mobile_user_id")
+    tuid = e.get("telegram_user_id")
+    if muid:
+        prof = mobile_profiles.get(muid) or {}
+        name = prof.get("display_name")
+        photo = prof.get("photo_url")
+        if photo:
+            avatar = f'<img class="mini-avatar" src="{_esc(photo)}" alt="" referrerpolicy="no-referrer">'
+        else:
+            initial = (name or muid)[:1].upper()
+            avatar = f'<span class="mini-avatar-initial mobile">{_esc(initial)}</span>'
+        label_text = name or (f"{muid[:6]}…" if len(muid) > 10 else muid)
+        return (
+            f'<a class="user-cell" href="/users/mobile/{_esc(muid)}" '
+            f'onclick="event.stopPropagation()" title="{_esc(muid)}">'
+            f'{avatar}<span class="user-name">{_esc(label_text)}</span></a>'
+        )
+    if tuid is not None:
+        return (
+            f'<a class="user-cell" href="/users/tg/{tuid}" '
+            f'onclick="event.stopPropagation()">'
+            f'<span class="mini-avatar-initial tg">T</span>'
+            f'<span class="user-name">tg:{tuid}</span></a>'
+        )
+    return (
+        '<a class="user-cell" href="/users/anon" onclick="event.stopPropagation()">'
+        '<span class="mini-avatar-initial anon">?</span>'
+        '<span class="user-name" style="color:#64748b">anon</span></a>'
+    )
+
+
+def _render_success_rows(entries: list[dict], mobile_profiles: dict[str, dict]) -> str:
     rows = ""
     for e in entries:
         ts = _fmt_time(e["timestamp"])
@@ -125,10 +173,12 @@ def _render_success_rows(entries: list[dict]) -> str:
         )
         cost_val = e.get("cost_usd")
         cost_cell = f"${cost_val:.4f}" if cost_val else '<span class="muted">—</span>'
+        user_cell = _user_cell_for_entry(e, mobile_profiles)
         rows += f"""<tr class="clickable" onclick="location.href='/history/view/{e['id']}'">
             <td class="thumb">{img_cell}</td>
             <td>{_esc(ts)}</td>
             <td><strong>{_esc(e.get('dish_name'))}</strong></td>
+            <td>{user_cell}</td>
             <td>{_esc(total_data.get('calories_kcal', 0))}</td>
             <td>{_esc(macro.get('protein_g', 0))}</td>
             <td>{_esc(macro.get('fat_g', 0))}</td>
@@ -141,18 +191,19 @@ def _render_success_rows(entries: list[dict]) -> str:
     return rows
 
 
-def _render_failed_rows(entries: list[dict]) -> str:
+def _render_failed_rows(entries: list[dict], mobile_profiles: dict[str, dict]) -> str:
     rows = ""
     for e in entries:
         ts = _fmt_time(e["timestamp"])
         err = e.get("error") or "(no error message recorded)"
-        # First non-empty line as the summary
         summary_text = next((ln for ln in err.splitlines() if ln.strip()), err).strip()
         if len(summary_text) > 140:
             summary_text = summary_text[:140] + "…"
         full_err = _esc(err)
+        user_cell = _user_cell_for_entry(e, mobile_profiles)
         rows += f"""<tr>
             <td>{_esc(ts)}</td>
+            <td>{user_cell}</td>
             <td><span class="badge">{_esc(e.get('provider'))}</span> {_esc(e.get('model'))}</td>
             <td>{_esc(e.get('dish_name'))}</td>
             <td>{_esc(e.get('response_time_ms'))}ms</td>
@@ -276,20 +327,24 @@ async def history_list_page(
 """
         return page("History", "history", body)
 
+    # Batch-fetch mobile profiles to render User column with name/avatar (one SQL)
+    mobile_uids_in_entries = list({e.get("mobile_user_id") for e in entries if e.get("mobile_user_id")})
+    mobile_profiles = await get_cached_mobile_users(mobile_uids_in_entries) if mobile_uids_in_entries else {}
+
     if status == "failed":
         table_html = f"""
 <table>
-<tr><th>Time</th><th>AI</th><th>Dish</th><th>Took</th><th>Error</th></tr>
-{_render_failed_rows(entries)}
+<tr><th>Time</th><th>User</th><th>AI</th><th>Dish</th><th>Took</th><th>Error</th></tr>
+{_render_failed_rows(entries, mobile_profiles)}
 </table>"""
     else:
         table_html = f"""
 <table>
 <tr>
-    <th></th><th>Time</th><th>Dish</th><th>kcal</th><th>P</th><th>F</th><th>C</th>
+    <th></th><th>Time</th><th>Dish</th><th>User</th><th>kcal</th><th>P</th><th>F</th><th>C</th>
     <th>Allergens</th><th>AI</th><th>Time</th><th>≈$</th>
 </tr>
-{_render_success_rows(entries)}
+{_render_success_rows(entries, mobile_profiles)}
 </table>"""
 
     pag = ""
