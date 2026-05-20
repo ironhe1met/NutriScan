@@ -120,6 +120,19 @@ SHARED_USERS_STYLES = """
   .profile-extra .field { background: #0f172a; padding: 4px 10px; border-radius: 6px; font-size: 0.8em; color: #94a3b8; }
   .profile-extra .field strong { color: #f8fafc; }
   .fs-card { background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: 'SF Mono', Consolas, monospace; font-size: 0.78em; color: #94a3b8; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; }
+
+  /* Subscription / plan pill (neutral wording until Q-017 confirmed) */
+  .plan-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.78em; font-weight: 600; }
+  .plan-pill.active { background: #064e3b; color: #6ee7b7; }
+  .plan-pill.inactive { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+  .plan-pill::before { content: "●"; font-size: 0.7em; }
+
+  /* Structured profile section */
+  .profile-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .profile-section .pf { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; }
+  .profile-section .pf-label { color: #64748b; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .profile-section .pf-value { color: #f8fafc; font-size: 0.95em; font-weight: 500; line-height: 1.3; }
+  .profile-section .pf-value .secondary { color: #64748b; font-size: 0.82em; font-weight: 400; margin-left: 4px; }
   .uid-cell { display: flex; align-items: center; gap: 0; }
   .uid-text { font-family: 'SF Mono', Consolas, monospace; font-size: 0.85em; color: #f8fafc; }
   .type-badge { display: inline-block; background: #0f172a; padding: 2px 8px; border-radius: 6px; font-size: 0.72em; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
@@ -278,7 +291,15 @@ def _profile_card_for(user_type: str, user_id: str | None, profile: dict | None)
         )
 
     extras = []
+    fs = (profile or {}).get("firestore") or {}
     if profile:
+        # Plan / subscription pill — based on is_plan_activated (Q-017 still open)
+        if "is_plan_activated" in fs:
+            if fs["is_plan_activated"]:
+                extras.append('<span class="plan-pill active" title="is_plan_activated=True (Q-017)">Plan active</span>')
+            else:
+                extras.append('<span class="plan-pill inactive" title="is_plan_activated=False (Q-017)">Plan inactive</span>')
+
         cc = profile.get("custom_claims") or {}
         if cc.get("tier") or cc.get("subscription"):
             tier = cc.get("tier") or cc.get("subscription")
@@ -310,6 +331,8 @@ def _profile_card_for(user_type: str, user_id: str | None, profile: dict | None)
         f'padding:4px 10px;border-radius:6px;font-size:0.8em">↻ Refresh</button></form>'
     ) if fb_is_enabled() else ""
 
+    structured_profile = _profile_section_html(profile)
+
     firestore_block = ""
     if profile and profile.get("firestore"):
         import json as _json
@@ -319,7 +342,7 @@ def _profile_card_for(user_type: str, user_id: str | None, profile: dict | None)
             fs_text = str(profile["firestore"])
         firestore_block = (
             f'<details style="margin-bottom:16px"><summary style="cursor:pointer;color:#94a3b8;'
-            f'font-size:0.88em">Firestore document (users/{_esc(user_id)})</summary>'
+            f'font-size:0.88em">Raw Firestore document (users/{_esc(user_id)})</summary>'
             f'<pre class="fs-card">{_esc(fs_text)}</pre></details>'
         )
 
@@ -327,8 +350,121 @@ def _profile_card_for(user_type: str, user_id: str | None, profile: dict | None)
         f'<div class="profile-card">{avatar}{ident}'
         f'<div class="profile-extra">{"".join(extras)}'
         f'<span class="type-badge mobile">mobile</span>{refresh_btn}</div></div>'
+        f'{structured_profile}'
         f'{firestore_block}'
     )
+
+
+def _profile_section_html(profile: dict | None) -> str:
+    """Render demographic / fitness profile in a structured grid (from Firestore data)."""
+    if not profile:
+        return ""
+    fs = profile.get("firestore") or {}
+    if not fs:
+        return ""
+
+    units_metric = fs.get("is_unitSystem_metric", True)
+    weight_unit = "kg" if units_metric else "lb"
+    height_unit = "cm" if units_metric else "in"
+
+    fields: list[tuple[str, str]] = []
+
+    # Demographics
+    age = fs.get("age")
+    gender = fs.get("gender")
+    if age is not None or gender:
+        bits = []
+        if age is not None:
+            bits.append(f"{age}")
+        if gender:
+            bits.append(_esc(gender))
+        fields.append(("Demographics", " · ".join(bits) or "—"))
+
+    # Height
+    height = fs.get("height")
+    if height is not None:
+        fields.append(("Height", f"{_fmt_num(height)} <span class=\"secondary\">{height_unit}</span>"))
+
+    # Weight (current vs target)
+    cur = fs.get("current_weight") or fs.get("weight")
+    target = fs.get("target_weight")
+    if cur is not None or target is not None:
+        bits = []
+        if cur is not None:
+            bits.append(f"{_fmt_num(cur)} {weight_unit}")
+        if target is not None and target != cur:
+            bits.append(f'<span class="secondary">→ {_fmt_num(target)} {weight_unit}</span>')
+        fields.append(("Weight", " ".join(bits)))
+
+    # Goal
+    if fs.get("main_goal"):
+        fields.append(("Main goal", _esc(fs["main_goal"])))
+
+    # Activity
+    if fs.get("activity_level"):
+        fields.append(("Activity level", _esc(fs["activity_level"])))
+
+    # Macro split
+    p, c, f = fs.get("proteins"), fs.get("carbs"), fs.get("fats")
+    if p is not None and c is not None and f is not None:
+        fields.append((
+            "Macro split",
+            f"P {int(p*100)}% · C {int(c*100)}% · F {int(f*100)}%"
+            if all(isinstance(v, (int, float)) and v <= 1 for v in (p, c, f))
+            else f"P {p} · C {c} · F {f}",
+        ))
+
+    # Locale / Units
+    tz = fs.get("timezone")
+    if tz:
+        units_str = "Metric" if units_metric else "Imperial"
+        fields.append(("Locale", f"{_esc(tz)} <span class=\"secondary\">· {units_str}</span>"))
+
+    # Activity dates
+    created = fs.get("created_time")
+    last_active = fs.get("last_active_timestamp")
+    if created or last_active:
+        bits = []
+        if created:
+            bits.append(f"joined {_fmt_fs_date(created)}")
+        if last_active:
+            bits.append(f'<span class="secondary">last active {_fmt_fs_date(last_active)}</span>')
+        fields.append(("Activity", "<br>".join(bits)))
+
+    # Onboarding flag
+    if "Questionaries_was_completed" in fs:
+        v = "yes" if fs["Questionaries_was_completed"] else "no"
+        fields.append(("Onboarding done", v))
+
+    if not fields:
+        return ""
+
+    cards = "".join(
+        f'<div class="pf"><div class="pf-label">{label}</div>'
+        f'<div class="pf-value">{value}</div></div>'
+        for label, value in fields
+    )
+    return f'<div class="profile-section">{cards}</div>'
+
+
+def _fmt_num(v) -> str:
+    """Trim trailing zeros from floats: 70.30681735 → '70.3', 198.12 → '198.12'."""
+    try:
+        f = float(v)
+        if f.is_integer():
+            return str(int(f))
+        return f"{f:.2f}".rstrip("0").rstrip(".")
+    except Exception:
+        return _esc(v)
+
+
+def _fmt_fs_date(v) -> str:
+    """Firestore returns ISO strings via json default=str."""
+    if not v:
+        return "—"
+    s = str(v)
+    # "2026-04-24 03:39:49.001000+00:00" → "2026-04-24"
+    return _esc(s[:10] if len(s) >= 10 else s)
 
 
 def _ident_cell(uid: str | None, type_: str, profile: dict | None) -> str:
