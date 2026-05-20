@@ -59,3 +59,13 @@
 - ✅ v1.2: Web Users page (`/users`) — список mobile + TG юзерів зі статистикою.
 - ✅ v1.2: User detail page (`/users/<uid>`) — повна стат + історія сканів + drill-down з Recent.
 - ✅ Нові питання Q-012..Q-014 (Firebase fields, credentials storage, haiku quality risk).
+
+## 2026-05-06 — v1.2 restructured into 4 minor releases; Firebase brief for mobile team
+
+- ✅ v1.2 broken into focused minor releases:
+  - **v1.2.0** — Mobile users + Firebase (NEXT after current v1.1.x)
+  - **v1.2.1** — Web admin users management
+  - **v1.2.2** — Settings page (DB-backed config, hot-reload)
+  - **v1.2.3** — Mandatory token + per-user mobile history + PG + HTTPS + backups
+- ✅ Created [`firebase-integration-brief.md`](firebase-integration-brief.md) — handoff doc for BroCalories mobile devs: what to send (X-User-Id header vs Bearer ID-token), how to generate service-account JSON, which Firestore fields we need (basic + demographics + subscription + marketing).
+- ✅ Expanded mobile_users field list in `ideas.md` (gender/age/country/weight/height/subscription/referral).

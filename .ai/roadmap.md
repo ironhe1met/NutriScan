@@ -67,21 +67,42 @@
 
 ---
 
-### v1.2 — Web admin + settings + mobile users + scale (candidate)
+### v1.2 — Web admin + settings + mobile users + scale (broken into minors)
 
-**Мета:** управління адмін-юзерами через web, Settings page для дефолтів, інтеграція з Firebase для розпізнавання mobile-юзерів, Users page в адмінці.
+**Мета:** розпізнавати кожного BroCalories-юзера в адмінці, керувати адмінами і налаштуваннями з UI, scale за межі SQLite. Розбито на 4 minor-релізи щоб не один великий PR.
+
+#### v1.2.0 — Mobile users + Firebase (NEXT)
 
 | Компонент | Статус |
 |-----------|--------|
-| **`mobile_user_id` колонка + header `X-User-Id`** — mobile шле Firebase UID разом з фотографією. | ⏳ |
-| **Firebase Admin SDK** — service account JSON у `.env`, `app/firebase.py` з функцією `get_user_profile(uid)`. | ⏳ |
-| **Кеш `mobile_users` table** — TTL 24h, async-refresh, не блокує `/analyze/`. | ⏳ |
-| **Web Users page (`/users`)** — список mobile + TG юзерів (з аватарками, email, total scans, total cost, subscription). | ⏳ |
-| **User detail page (`/users/<uid>`)** — повна стат + історія сканів + графік активності + drill-down з Recent. | ⏳ |
-| **Admin Users у БД** — нова таблиця `admin_users(id, email, password_hash, role, status, created_at)`. Web-UI: список, додати, видалити, скинути пароль. Backward-compat: `.env` як seed/fallback (мігруємо існуючих email-ів — щоб ніхто не втратив доступ). | ⏳ |
-| **Settings page** — UI для конфігу (default provider, default model, fallback chain, MAX_IMAGE_SIZE_MB). Таблиця `settings(key, value)`, hot-reload. | ⏳ |
-| **Mandatory token** на `/analyze/` (фінал rollout-у v1.1) | ⏳ |
-| Per-user history для mobile (юзер бачить свою у мобільному додатку) | ⏳ |
+| **`mobile_user_id` колонка у `requests`** + header `X-User-Id` від мобільного | ⏳ |
+| **Firebase Admin SDK** — service account JSON у `data/`, `app/firebase.py` з `get_user_profile(uid)` | ⏳ |
+| **Кеш `mobile_users` table** (TTL 24h, async refresh — не блокує `/analyze/`) | ⏳ |
+| **Web Users page (`/users`)** — список mobile + TG юзерів з аватарками, email, total scans, total cost, subscription | ⏳ |
+| **User detail (`/users/<uid>`)** — профіль (Firebase) + статистика (scans/cost/dates) + історія сканів + графік активності + drill-down з Recent | ⏳ |
+| **Дозовано опціонально:** `Authorization: Bearer <idToken>` для перевірки UID (анти-спуфінг) — або поки що довіряємо `X-User-Id` | ⏳ |
+| **Запит у мобільних розробників:** Firebase project ID, service-account JSON, перелік полів у `users/{uid}` document, тестовий UID. Див. [`.ai/firebase-integration-brief.md`](firebase-integration-brief.md) | 🟡 awaiting access |
+
+#### v1.2.1 — Web admin users
+
+| Компонент | Статус |
+|-----------|--------|
+| **Admin Users у БД** — `admin_users(email, password_hash, role, status)`. Bcrypt. Web `/admin/users`: list, add, disable, reset password | ⏳ |
+| **Backward-compat:** `.env` як seed/fallback (існуючі admin/alexandr/elena автоматично потрапляють у БД, доступ зберігається) | ⏳ |
+
+#### v1.2.2 — Settings page
+
+| Компонент | Статус |
+|-----------|--------|
+| Таблиця `settings(key, value)` + `/admin/settings` UI: default provider/model, fallback chain, MAX_IMAGE_SIZE_MB, STORE_IMAGES, tier-mapping (v1.3) | ⏳ |
+| Hot-reload без рестарту | ⏳ |
+
+#### v1.2.3 — Auth final + scale + ops
+
+| Компонент | Статус |
+|-----------|--------|
+| **Mandatory token** на `/analyze/` (фінал rollout v1.1) | ⏳ |
+| Per-user history для mobile (юзер бачить свою) | ⏳ |
 | **PostgreSQL** міграція з SQLite | ⏳ trigger: >1000 req/day або >5 пишучих процесів |
 | **HTTPS на nginx** (Certbot) | ⏳ |
 | Backups `data/stats.db` + `data/images/` | ⏳ |
