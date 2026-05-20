@@ -290,17 +290,35 @@ def _status_clause(status: str) -> str:
     return " AND success = 1 AND result_json IS NOT NULL"
 
 
+def _user_filter_clause(
+    mobile_user_id: str | None,
+    telegram_user_id: int | None,
+) -> tuple[str, list]:
+    """Build extra WHERE + params for narrowing history to a specific user."""
+    parts, params = [], []
+    if mobile_user_id:
+        parts.append("mobile_user_id = ?")
+        params.append(mobile_user_id)
+    if telegram_user_id is not None:
+        parts.append("telegram_user_id = ?")
+        params.append(telegram_user_id)
+    return (" AND " + " AND ".join(parts) if parts else ""), params
+
+
 async def count_history(
     date_from: float | None = None,
     date_to: float | None = None,
     status: str = "success",
+    mobile_user_id: str | None = None,
+    telegram_user_id: int | None = None,
 ) -> int:
     where_extra, params = _range_clause(date_from, date_to)
+    user_extra, user_params = _user_filter_clause(mobile_user_id, telegram_user_id)
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             f"""SELECT COUNT(*) FROM requests
-                WHERE 1=1{_status_clause(status)}{where_extra}""",
-            params,
+                WHERE 1=1{_status_clause(status)}{where_extra}{user_extra}""",
+            params + user_params,
         )
         return (await cursor.fetchone())[0]
 
@@ -308,16 +326,19 @@ async def count_history(
 async def count_history_by_status(
     date_from: float | None = None,
     date_to: float | None = None,
+    mobile_user_id: str | None = None,
+    telegram_user_id: int | None = None,
 ) -> dict:
-    """Returns {"success": N, "failed": M} for the date range."""
+    """Returns {"success": N, "failed": M} for the date range (optionally per-user)."""
     where_extra, params = _range_clause(date_from, date_to)
+    user_extra, user_params = _user_filter_clause(mobile_user_id, telegram_user_id)
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             f"""SELECT
                   SUM(CASE WHEN success = 1 AND result_json IS NOT NULL THEN 1 ELSE 0 END) as success,
                   SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed
-                FROM requests WHERE 1=1{where_extra}""",
-            params,
+                FROM requests WHERE 1=1{where_extra}{user_extra}""",
+            params + user_params,
         )
         row = await cursor.fetchone()
     return {"success": row[0] or 0, "failed": row[1] or 0}
@@ -329,8 +350,11 @@ async def get_history(
     date_from: float | None = None,
     date_to: float | None = None,
     status: str = "success",
+    mobile_user_id: str | None = None,
+    telegram_user_id: int | None = None,
 ) -> list[dict]:
     where_extra, params = _range_clause(date_from, date_to)
+    user_extra, user_params = _user_filter_clause(mobile_user_id, telegram_user_id)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
@@ -340,10 +364,10 @@ async def get_history(
                        input_tokens, output_tokens, cache_read_tokens, cost_usd,
                        client_id, telegram_user_id, mobile_user_id
                 FROM requests
-                WHERE 1=1{_status_clause(status)}{where_extra}
+                WHERE 1=1{_status_clause(status)}{where_extra}{user_extra}
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?""",
-            (*params, limit, offset),
+            (*params, *user_params, limit, offset),
         )
         rows = []
         for row in await cursor.fetchall():

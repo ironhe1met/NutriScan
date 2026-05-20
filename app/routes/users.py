@@ -557,11 +557,20 @@ async def _render_user_detail(
 </div>
 """
 
-    # by_day — rows clickable → ?date=<day> (filters page to single-day)
+    # by_day — rows clickable → History with date+user filters (visual scan list)
     base_path = (
         "/users/anon" if user_type == "anon"
         else f"/users/{user_type}/{user_id}"
     )
+    # drill-down target: History view filtered to this day + this user
+    def _day_drill_href(day: str) -> str:
+        if user_type == "mobile":
+            return f"/history/view/all?date={day}&mobile_user_id={user_id}"
+        if user_type == "tg":
+            return f"/history/view/all?date={day}&telegram_user_id={user_id}"
+        # anon: just date filter
+        return f"/history/view/all?date={day}"
+
     by_day = stats["by_day"]
     by_day_rows = ""
     if by_day:
@@ -569,7 +578,7 @@ async def _render_user_detail(
         for d in by_day:
             width = round(d["count"] / max_count * 100, 1)
             cost = f'${d["cost"]:.4f}' if d["cost"] else '—'
-            href = f"{base_path}?date={d['day']}"
+            href = _day_drill_href(d["day"])
             by_day_rows += (
                 f'<tr class="clickable" onclick="location.href=\'{href}\'">'
                 f'<td><strong>{d["day"]}</strong></td>'

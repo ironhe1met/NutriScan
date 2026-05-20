@@ -173,6 +173,8 @@ async def history_list_page(
     date_from: str | None = Query(None, alias="from"),
     date_to: str | None = Query(None, alias="to"),
     status: str = Query("success"),
+    mobile_user_id: str | None = Query(None),
+    telegram_user_id: int | None = Query(None),
 ):
     if status not in ("success", "failed"):
         status = "success"
@@ -180,14 +182,14 @@ async def history_list_page(
     offset = (page_num - 1) * per_page
 
     df = dt_end = None
-    filter_label = ""
+    filter_label_parts: list[str] = []
     qs_filter = ""
 
     if date:
         rng = day_range(date)
         if rng:
             df, dt_end = rng
-            filter_label = date
+            filter_label_parts.append(date)
             qs_filter = f"&date={date}"
     elif date_from or date_to:
         df_obj = parse_iso_date(date_from)
@@ -195,20 +197,43 @@ async def history_list_page(
         df = df_obj.timestamp() if df_obj else None
         dt_end = (dt_obj + timedelta(days=1)).timestamp() if dt_obj else None
         if df_obj and dt_obj:
-            filter_label = f"{date_from} → {date_to}"
+            filter_label_parts.append(f"{date_from} → {date_to}")
         elif df_obj:
-            filter_label = f"from {date_from}"
+            filter_label_parts.append(f"from {date_from}")
         elif dt_obj:
-            filter_label = f"until {date_to}"
+            filter_label_parts.append(f"until {date_to}")
         qs_parts = []
         if date_from: qs_parts.append(f"from={date_from}")
         if date_to: qs_parts.append(f"to={date_to}")
         qs_filter = "&" + "&".join(qs_parts) if qs_parts else ""
 
-    counts = await count_history_by_status(date_from=df, date_to=dt_end)
-    total = await count_history(date_from=df, date_to=dt_end, status=status)
+    # User filter
+    user_qs_parts = []
+    user_link_back = ""
+    if mobile_user_id:
+        short = f"{mobile_user_id[:6]}…" if len(mobile_user_id) > 10 else mobile_user_id
+        filter_label_parts.append(f'mobile user <a href="/users/mobile/{_esc(mobile_user_id)}" style="color:#c4b5fd">{_esc(short)}</a>')
+        user_qs_parts.append(f"mobile_user_id={mobile_user_id}")
+        user_link_back = f"/users/mobile/{mobile_user_id}"
+    if telegram_user_id is not None:
+        filter_label_parts.append(f'TG user <a href="/users/tg/{telegram_user_id}" style="color:#7dd3fc">{telegram_user_id}</a>')
+        user_qs_parts.append(f"telegram_user_id={telegram_user_id}")
+        user_link_back = f"/users/tg/{telegram_user_id}"
+    if user_qs_parts:
+        qs_filter += "&" + "&".join(user_qs_parts)
+    filter_label = " · ".join(filter_label_parts)
+
+    counts = await count_history_by_status(
+        date_from=df, date_to=dt_end,
+        mobile_user_id=mobile_user_id, telegram_user_id=telegram_user_id,
+    )
+    total = await count_history(
+        date_from=df, date_to=dt_end, status=status,
+        mobile_user_id=mobile_user_id, telegram_user_id=telegram_user_id,
+    )
     entries = await get_history(
         limit=per_page, offset=offset, date_from=df, date_to=dt_end, status=status,
+        mobile_user_id=mobile_user_id, telegram_user_id=telegram_user_id,
     )
     total_pages = max(1, (total + per_page - 1) // per_page)
 
@@ -217,9 +242,12 @@ async def history_list_page(
 
     filter_banner = ""
     if filter_label:
+        # filter_label may already contain safe <a>...</a> for user links — do NOT escape it
+        clear_url = user_link_back or "/history/view/all"
+        clear_text = "Back to user" if user_link_back else "Clear filter ✕"
         filter_banner = (
-            f'<div class="filter-banner">Showing for <strong>{_esc(filter_label)}</strong> '
-            f'<a href="/history/view/all?status={status}">Clear date ✕</a></div>'
+            f'<div class="filter-banner">Showing for <strong>{filter_label}</strong> '
+            f'<a href="{clear_url}?status={status}">{clear_text}</a></div>'
         )
 
     if total == 0:
