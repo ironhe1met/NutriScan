@@ -730,6 +730,33 @@ async def upsert_mobile_user(uid: str, profile: dict | None, error: str | None =
         await db.commit()
 
 
+async def get_user_tier(mobile_user_id: str | None) -> str:
+    """Returns 'paid' or 'free' based on cached Firestore is_plan_activated.
+
+    Defaults to 'free' for:
+      - anonymous request (no mobile_user_id)
+      - unknown UID (no cache row)
+      - cache row without firestore_json
+      - is_plan_activated missing / False
+      - any parse error (cautious — never give paid model by accident)
+    """
+    if not mobile_user_id:
+        return "free"
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT firestore_json FROM mobile_users WHERE uid = ?",
+            (mobile_user_id,),
+        )
+        row = await cursor.fetchone()
+        if not row or not row[0]:
+            return "free"
+        try:
+            fs = json.loads(row[0])
+        except Exception:
+            return "free"
+    return "paid" if fs.get("is_plan_activated") else "free"
+
+
 async def mobile_user_cache_stale(uid: str, ttl_sec: int) -> bool:
     """Return True if there is no cache row or it is older than ttl_sec."""
     async with aiosqlite.connect(DB_PATH) as db:

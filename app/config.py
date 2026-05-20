@@ -77,6 +77,16 @@ class Settings(BaseSettings):
     # /analyze/ ALWAYS refreshes (so plan changes propagate within one scan).
     firebase_cache_ttl_sec: int = 3600  # 1h
 
+    # Tier-based model selection (v1.3 partial — config-driven)
+    # When client does NOT pass ?model=, backend picks based on user's tier
+    # (paid = is_plan_activated=True; free = everyone else / anon / TG / failure).
+    # Fallback chain uses the same tier mapping for each provider.
+    tier_models: dict[str, dict[str, str]] = {
+        "anthropic": {"paid": "sonnet",    "free": "haiku"},
+        "openai":    {"paid": "gpt4o",     "free": "gpt4o-mini"},
+        "google":    {"paid": "pro",       "free": "flash-lite"},
+    }
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

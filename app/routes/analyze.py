@@ -103,14 +103,19 @@ async def analyze(
         except Exception as e:
             logger.warning("Firebase refresh trigger failed for uid=%s: %s", mobile_user_id, e)
 
+    # Resolve user tier (paid|free) from cached Firestore is_plan_activated
+    # — used when client does NOT pass explicit ?model= override.
+    from ..db import get_user_tier
+    user_tier = await get_user_tier(mobile_user_id)
+
     # Process and validate image (before any provider calls)
     image_b64, media_type, size_bytes = await process_upload(image)
     logger.info(
-        "Received image: %s, %.1f KB, type=%s, requested=%s/%s, client=%s, tg_user=%s, mobile_user=%s",
+        "Received image: %s, %.1f KB, type=%s, requested=%s/%s, client=%s, tg_user=%s, mobile_user=%s, tier=%s",
         image.filename, size_bytes / 1024, media_type,
         requested_provider, requested_model or "default",
         client_name or "anon", x_telegram_user_id or "-",
-        mobile_user_id or "-",
+        mobile_user_id or "-", user_tier,
     )
 
     # Try each provider in the fallback chain
@@ -118,8 +123,15 @@ async def analyze(
     errors = []
 
     for attempt_idx, provider_name in enumerate(chain):
-        # Use user's requested model only on first attempt; fallbacks use provider default
-        use_model = requested_model if attempt_idx == 0 else None
+        # Model selection priority:
+        #   1. Explicit ?model= from client → use as-is (developer override, first attempt only)
+        #   2. Tier-based mapping from settings.tier_models[provider][tier]
+        #   3. None → provider's get_default_model() kicks in
+        if requested_model and attempt_idx == 0:
+            use_model = requested_model
+        else:
+            tier_map = settings.tier_models.get(provider_name) or {}
+            use_model = tier_map.get(user_tier) or None
 
         try:
             ai = get_provider(provider_name)
