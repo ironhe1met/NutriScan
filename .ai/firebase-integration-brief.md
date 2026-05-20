@@ -7,13 +7,45 @@
 
 ## 1. Що додати
 
-При кожному `POST` на `https://nutriscan.radarme.com.ua/analyze/` додайте header:
+При кожному `POST` на `https://nutriscan.radarme.com.ua/analyze/` додайте HTTP-header:
 
 ```
 X-User-Id: <firebase_uid>
 ```
 
 де `<firebase_uid>` — це `FirebaseAuth.instance.currentUser?.uid` (28-символьна строка).
+
+### Як виглядає повний HTTP-запит
+
+Це для розуміння контракту — те, що ваш Flutter `http.post` фактично шле по мережі. **До** (як зараз):
+
+```http
+POST /analyze/ HTTP/1.1
+Host: nutriscan.radarme.com.ua
+Content-Type: multipart/form-data; boundary=----dart-boundary-xxx
+Content-Length: 20197
+
+------dart-boundary-xxx
+Content-Disposition: form-data; name="image"; filename="food.jpg"
+Content-Type: image/jpeg
+
+<binary image bytes>
+------dart-boundary-xxx--
+```
+
+**Після** (треба):
+
+```http
+POST /analyze/ HTTP/1.1
+Host: nutriscan.radarme.com.ua
+X-User-Id: 7Bx9zP3mKqY8wNsA2fLgVcEhRtUi    ← єдина зміна
+Content-Type: multipart/form-data; boundary=----dart-boundary-xxx
+Content-Length: 20197
+
+<same body>
+```
+
+Тобто буквально **один рядок** у HTTP-headers, body не міняється, відповідь не міняється.
 
 ### Приклад на Dart / Flutter
 
@@ -30,7 +62,46 @@ final response = await http.post(
 );
 ```
 
-Все. Більше нічого міняти не треба. Структура запиту і відповіді — без змін, JSON-формат той самий.
+### Приклад через curl (для тестування з терміналу)
+
+Якщо хочете перевірити прямо з терміналу, без перебудови додатку — скопіюйте і запустіть, замінивши `<UID>` і шлях до фотки:
+
+```bash
+curl -X POST https://nutriscan.radarme.com.ua/analyze/ \
+  -H "X-User-Id: 7Bx9zP3mKqY8wNsA2fLgVcEhRtUi" \
+  -F "image=@/path/to/food.jpg"
+```
+
+Відповідь — звичайний JSON (як зараз приходить у ваш додаток):
+
+```json
+{
+  "data": {
+    "dish_name": "Pepsi Cola (500ml bottle)",
+    "ingredients": [
+      {
+        "name": "Pepsi",
+        "weight_g": 500,
+        "calories_kcal": 215,
+        "macronutrients": {"protein_g": 0, "fat_g": 0, "carbs_g": 56.5},
+        "allergens": []
+      }
+    ],
+    "total": {
+      "calories_kcal": 215,
+      "macronutrients": {"protein_g": 0, "fat_g": 0, "carbs_g": 56.5, "water_g": 0},
+      "allergens": []
+    }
+  },
+  "error": null
+}
+```
+
+Response-headers (FYI, інформаційні — мобільному додатку обробляти не треба):
+- `X-Provider: anthropic` — який AI обробив (anthropic / openai / google)
+- `X-Model: haiku` — яка модель
+- `X-Attempts: 1` — з якої спроби вдалось
+- `X-Fallback-From: ...` — якщо primary провайдер впав і fallback спрацював
 
 ---
 
