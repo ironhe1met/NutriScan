@@ -43,6 +43,18 @@ async def init_db():
                 notes TEXT
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS mobile_users (
+                uid TEXT PRIMARY KEY,
+                email TEXT,
+                display_name TEXT,
+                photo_url TEXT,
+                custom_claims_json TEXT,
+                firestore_json TEXT,
+                fetched_at REAL NOT NULL,
+                fetch_error TEXT
+            )
+        """)
         # Migrations: add columns if missing (existing DBs)
         for column_def in [
             "ALTER TABLE requests ADD COLUMN result_json TEXT",
@@ -592,3 +604,110 @@ async def count_user_history(
             params,
         )
         return (await cursor.fetchone())[0]
+
+
+# ---------------------------------------------------------------------------
+# Mobile user profile cache (Firebase Auth + Firestore snapshot)
+# ---------------------------------------------------------------------------
+
+async def get_cached_mobile_user(uid: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM mobile_users WHERE uid = ?", (uid,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        if d.get("custom_claims_json"):
+            try:
+                d["custom_claims"] = json.loads(d["custom_claims_json"])
+            except Exception:
+                d["custom_claims"] = {}
+        else:
+            d["custom_claims"] = {}
+        if d.get("firestore_json"):
+            try:
+                d["firestore"] = json.loads(d["firestore_json"])
+            except Exception:
+                d["firestore"] = None
+        else:
+            d["firestore"] = None
+        return d
+
+
+async def get_cached_mobile_users(uids: list[str]) -> dict[str, dict]:
+    """Batch fetch — returns {uid: profile_dict}."""
+    if not uids:
+        return {}
+    placeholders = ",".join("?" * len(uids))
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            f"SELECT * FROM mobile_users WHERE uid IN ({placeholders})", uids,
+        )
+        out = {}
+        for row in await cursor.fetchall():
+            d = dict(row)
+            out[d["uid"]] = d
+        return out
+
+
+async def upsert_mobile_user(uid: str, profile: dict | None, error: str | None = None) -> None:
+    """Insert or replace the cached profile. `profile` can be None on hard-fail."""
+    custom_claims_json = None
+    firestore_json = None
+    email = display_name = photo_url = None
+
+    if profile:
+        email = profile.get("email")
+        display_name = profile.get("display_name")
+        photo_url = profile.get("photo_url")
+        if profile.get("custom_claims"):
+            custom_claims_json = json.dumps(profile["custom_claims"], ensure_ascii=False)
+        if profile.get("firestore") is not None:
+            firestore_json = json.dumps(profile["firestore"], ensure_ascii=False, default=str)
+        # propagate per-source errors into a single fetch_error if both Auth+Firestore failed
+        if not error:
+            a_err = profile.get("_auth_error")
+            f_err = profile.get("_firestore_error")
+            if a_err and f_err:
+                error = f"auth:{a_err}; firestore:{f_err}"
+            elif a_err:
+                error = f"auth:{a_err}"
+            elif f_err:
+                error = f"firestore:{f_err}"
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO mobile_users
+                 (uid, email, display_name, photo_url, custom_claims_json,
+                  firestore_json, fetched_at, fetch_error)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(uid) DO UPDATE SET
+                 email = excluded.email,
+                 display_name = excluded.display_name,
+                 photo_url = excluded.photo_url,
+                 custom_claims_json = excluded.custom_claims_json,
+                 firestore_json = excluded.firestore_json,
+                 fetched_at = excluded.fetched_at,
+                 fetch_error = excluded.fetch_error""",
+            (
+                uid, email, display_name, photo_url, custom_claims_json,
+                firestore_json, time.time(), error,
+            ),
+        )
+        await db.commit()
+
+
+async def mobile_user_cache_stale(uid: str, ttl_sec: int) -> bool:
+    """Return True if there is no cache row or it is older than ttl_sec."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT fetched_at FROM mobile_users WHERE uid = ?", (uid,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return True
+        return (time.time() - row[0]) > ttl_sec

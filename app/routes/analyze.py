@@ -90,6 +90,19 @@ async def analyze(
     # Sanitize mobile user-id: trim, drop if too long (28 = Firebase UID; allow up to 64)
     mobile_user_id = (x_user_id or "").strip()[:64] or None
 
+    # Trigger background Firebase fetch if cache is stale (non-blocking, never raises)
+    if mobile_user_id:
+        try:
+            from ..firebase import is_enabled as _fb_enabled
+            if _fb_enabled():
+                from ..db import mobile_user_cache_stale as _stale
+                if await _stale(mobile_user_id, settings.firebase_cache_ttl_sec):
+                    import asyncio as _asyncio
+                    from ..routes.users import _refresh_mobile_profile as _refresh
+                    _asyncio.create_task(_refresh(mobile_user_id))
+        except Exception as e:
+            logger.warning("Firebase refresh trigger failed for uid=%s: %s", mobile_user_id, e)
+
     # Process and validate image (before any provider calls)
     image_b64, media_type, size_bytes = await process_upload(image)
     logger.info(

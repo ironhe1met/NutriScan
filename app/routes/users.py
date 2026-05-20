@@ -1,19 +1,49 @@
+import asyncio
 import html
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
+from ..config import settings
 from ..db import (
     list_users,
     get_user_stats,
     get_user_history,
     count_user_history,
+    get_cached_mobile_user,
+    get_cached_mobile_users,
+    upsert_mobile_user,
+    mobile_user_cache_stale,
 )
+from ..firebase import get_user_profile as fb_get_user_profile, is_enabled as fb_is_enabled, get_init_error as fb_init_error
 from ..layout import page
 from ..utils.date_range import PRESETS, resolve_range
 
+logger = logging.getLogger("nutriscan.users")
 router = APIRouter()
+
+
+async def _refresh_mobile_profile(uid: str) -> dict | None:
+    """Fetch from Firebase, persist to cache. Returns the profile (or None)."""
+    profile = await fb_get_user_profile(uid)
+    if profile is None:
+        # firebase disabled or hard-error — still record a stub so we don't re-hit constantly
+        await upsert_mobile_user(uid, None, error="firebase_unavailable")
+        return None
+    await upsert_mobile_user(uid, profile)
+    return profile
+
+
+async def _get_profile_with_refresh(uid: str) -> dict | None:
+    """Return cached profile; trigger background refresh if stale/missing."""
+    cached = await get_cached_mobile_user(uid)
+    stale = await mobile_user_cache_stale(uid, settings.firebase_cache_ttl_sec)
+    if stale and fb_is_enabled():
+        # Fire and forget; current request returns the (possibly stale or None) cache
+        asyncio.create_task(_refresh_mobile_profile(uid))
+    return cached
 
 
 def _esc(v) -> str:
@@ -78,6 +108,18 @@ SHARED_USERS_STYLES = """
   tr.clickable:hover td { background: #273449; }
 
   .avatar { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 0.85em; margin-right: 10px; vertical-align: middle; flex-shrink: 0; }
+  .avatar-img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; margin-right: 10px; flex-shrink: 0; background: #0f172a; }
+  .ident-stack { display: inline-block; vertical-align: middle; }
+  .ident-name { color: #f8fafc; font-weight: 600; font-size: 0.92em; line-height: 1.2; }
+  .ident-sub { color: #64748b; font-size: 0.78em; line-height: 1.2; }
+  .profile-card { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 20px; }
+  .profile-card .avatar, .profile-card .avatar-img { width: 56px; height: 56px; font-size: 1.3em; margin-right: 0; }
+  .profile-card .ident-name { font-size: 1.15em; }
+  .profile-card .ident-sub { font-size: 0.88em; }
+  .profile-extra { display: flex; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+  .profile-extra .field { background: #0f172a; padding: 4px 10px; border-radius: 6px; font-size: 0.8em; color: #94a3b8; }
+  .profile-extra .field strong { color: #f8fafc; }
+  .fs-card { background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: 'SF Mono', Consolas, monospace; font-size: 0.78em; color: #94a3b8; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; }
   .uid-cell { display: flex; align-items: center; gap: 0; }
   .uid-text { font-family: 'SF Mono', Consolas, monospace; font-size: 0.85em; color: #f8fafc; }
   .type-badge { display: inline-block; background: #0f172a; padding: 2px 8px; border-radius: 6px; font-size: 0.72em; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px; }
@@ -124,22 +166,23 @@ async def users_list_page(
     df, dt_end, active_preset, _, _ = resolve_range(range_, None, None)
     users = await list_users(date_from=df, date_to=dt_end, limit=500)
 
+    # Batch-fetch cached profiles for all mobile users
+    mobile_uids = [u["uid"] for u in users if u["type"] == "mobile" and u.get("uid")]
+    cache = await get_cached_mobile_users(mobile_uids) if mobile_uids else {}
+
     rows = ""
     for u in users:
         uid = u["uid"]
         type_ = u["type"]
-        avatar = _initial_block(uid or "?", type_)
-        short_uid = _user_short(uid, type_)
-        if type_ == "anon":
-            short_uid_html = '<span class="uid-text" style="color:#64748b">(anonymous)</span>'
-        else:
-            short_uid_html = f'<span class="uid-text" title="{_esc(uid)}">{_esc(short_uid)}</span>'
+        profile = cache.get(uid) if type_ == "mobile" else None
+        avatar = _avatar_for(uid or "?", type_, profile)
+        ident_cell = _ident_cell(uid, type_, profile)
 
         success_rate = round((u["successes"] or 0) / u["total"] * 100, 1) if u["total"] else 0
         cost_str = f'${u["cost"]:.4f}' if u["cost"] else '—'
         href = _user_link(type_, uid)
         rows += f"""<tr class="clickable" onclick="location.href='{href}'">
-            <td><div class="uid-cell">{avatar}{short_uid_html}<span class="type-badge {type_}">{type_}</span></div></td>
+            <td><div class="uid-cell">{avatar}{ident_cell}<span class="type-badge {type_}">{type_}</span></div></td>
             <td>{u["total"]}</td>
             <td>{u["successes"] or 0} <span class="muted">({success_rate}%)</span></td>
             <td>{cost_str}</td>
@@ -150,11 +193,14 @@ async def users_list_page(
     if not rows:
         rows = '<tr><td colspan="6" class="empty">No users in this range</td></tr>'
 
+    fb_status = _firebase_status_banner()
+
     body = f"""
 <h1>Users</h1>
 <p class="subtitle">{len(users)} known users (mobile + Telegram + anonymous)</p>
 
 {SHARED_USERS_STYLES}
+{fb_status}
 {_filter_bar(active_preset)}
 
 <table>
@@ -168,13 +214,145 @@ async def users_list_page(
 </tr>
 {rows}
 </table>
-
-<p class="muted" style="margin-top:16px;font-size:0.85em">
-  Mobile users: anonymous Firebase UID (28 chars, masked). Profile data (email, name, avatar)
-  буде відображатись після інтеграції з Firebase у наступному релізі v1.2.0b.
-</p>
 """
     return page("Users", "users", body)
+
+
+def _firebase_status_banner() -> str:
+    if fb_is_enabled():
+        return ""
+    reason = fb_init_error() or "not configured"
+    return (
+        f'<div style="background:#1e293b;border:1px solid #f59e0b;border-radius:10px;'
+        f'padding:10px 14px;margin-bottom:16px;color:#fcd34d;font-size:0.88em">'
+        f'⚠ Firebase profile fetch is OFF — showing only UIDs. Reason: '
+        f'<code>{_esc(reason)}</code></div>'
+    )
+
+
+def _avatar_for(uid: str, type_: str, profile: dict | None) -> str:
+    """Real photo if Firebase profile has photo_url, else colored initial block."""
+    if profile and profile.get("photo_url"):
+        return f'<img class="avatar-img" src="{_esc(profile["photo_url"])}" alt="" referrerpolicy="no-referrer">'
+    return _initial_block(uid, type_)
+
+
+def _detail_title(user_type: str, user_id: str | None, profile: dict | None) -> str:
+    if user_type == "anon":
+        return "Anonymous"
+    if user_type == "tg":
+        return f"Telegram user {user_id}"
+    if profile and profile.get("display_name"):
+        return profile["display_name"]
+    return f"Mobile user {_user_short(user_id, 'mobile')}"
+
+
+def _profile_card_for(user_type: str, user_id: str | None, profile: dict | None) -> str:
+    if user_type == "anon":
+        return (
+            f'<div class="profile-card">{_initial_block("?", "anon")}'
+            f'<div class="ident-stack"><div class="ident-name">Anonymous</div>'
+            f'<div class="ident-sub">requests without user_id / pre-v1.2 history</div></div></div>'
+        )
+    if user_type == "tg":
+        return (
+            f'<div class="profile-card">{_initial_block(user_id or "?", "tg")}'
+            f'<div class="ident-stack"><div class="ident-name">Telegram user</div>'
+            f'<div class="ident-sub">id: {_esc(user_id)}</div></div>'
+            f'<span class="type-badge tg" style="margin-left:auto">tg</span></div>'
+        )
+
+    # mobile
+    avatar = _avatar_for(user_id or "?", "mobile", profile)
+    if profile and (profile.get("display_name") or profile.get("email")):
+        name = profile.get("display_name") or "—"
+        email = profile.get("email") or ""
+        ident = (
+            f'<div class="ident-stack"><div class="ident-name">{_esc(name)}</div>'
+            f'<div class="ident-sub">{_esc(email)}</div></div>'
+        )
+    else:
+        ident = (
+            f'<div class="ident-stack"><div class="ident-name">Mobile user</div>'
+            f'<div class="ident-sub" title="{_esc(user_id)}">uid: {_esc(user_id)}</div></div>'
+        )
+
+    extras = []
+    if profile:
+        cc = profile.get("custom_claims") or {}
+        if cc.get("tier") or cc.get("subscription"):
+            tier = cc.get("tier") or cc.get("subscription")
+            extras.append(f'<span class="field">tier: <strong>{_esc(tier)}</strong></span>')
+        if profile.get("phone_number"):
+            extras.append(f'<span class="field">phone: <strong>{_esc(profile["phone_number"])}</strong></span>')
+        if profile.get("email_verified") is False:
+            extras.append('<span class="field" style="color:#fca5a5">email not verified</span>')
+        if profile.get("disabled"):
+            extras.append('<span class="field" style="color:#f87171">disabled</span>')
+        if profile.get("fetched_at"):
+            try:
+                age_min = int((datetime.now().timestamp() - profile["fetched_at"]) / 60)
+                extras.append(f'<span class="field">cached {age_min}m ago</span>')
+            except Exception:
+                pass
+        if profile.get("fetch_error"):
+            extras.append(
+                f'<span class="field" style="color:#fcd34d" title="Firebase did not return data">'
+                f'⚠ {_esc(profile["fetch_error"])}</span>'
+            )
+    else:
+        extras.append('<span class="field" style="color:#fcd34d">no Firebase data yet</span>')
+
+    refresh_btn = (
+        f'<form method="post" action="/users/mobile/{_esc(user_id)}/refresh" style="margin:0">'
+        f'<button type="submit" class="field" '
+        f'style="background:#0f172a;border:1px solid #334155;color:#38bdf8;cursor:pointer;'
+        f'padding:4px 10px;border-radius:6px;font-size:0.8em">↻ Refresh</button></form>'
+    ) if fb_is_enabled() else ""
+
+    firestore_block = ""
+    if profile and profile.get("firestore"):
+        import json as _json
+        try:
+            fs_text = _json.dumps(profile["firestore"], indent=2, ensure_ascii=False, default=str)
+        except Exception:
+            fs_text = str(profile["firestore"])
+        firestore_block = (
+            f'<details style="margin-bottom:16px"><summary style="cursor:pointer;color:#94a3b8;'
+            f'font-size:0.88em">Firestore document (users/{_esc(user_id)})</summary>'
+            f'<pre class="fs-card">{_esc(fs_text)}</pre></details>'
+        )
+
+    return (
+        f'<div class="profile-card">{avatar}{ident}'
+        f'<div class="profile-extra">{"".join(extras)}'
+        f'<span class="type-badge mobile">mobile</span>{refresh_btn}</div></div>'
+        f'{firestore_block}'
+    )
+
+
+def _ident_cell(uid: str | None, type_: str, profile: dict | None) -> str:
+    """Render name+email if we have profile; otherwise just the masked UID."""
+    if type_ == "anon":
+        return '<span class="uid-text" style="color:#64748b">(anonymous)</span>'
+    if profile and (profile.get("display_name") or profile.get("email")):
+        name = profile.get("display_name") or "—"
+        email = profile.get("email") or ""
+        return (
+            f'<div class="ident-stack">'
+            f'<div class="ident-name">{_esc(name)}</div>'
+            f'<div class="ident-sub">{_esc(email)}</div>'
+            f'</div>'
+        )
+    short = _user_short(uid, type_)
+    return f'<span class="uid-text" title="{_esc(uid)}">{_esc(short)}</span>'
+
+
+@router.post("/users/mobile/{uid}/refresh")
+async def users_mobile_refresh(uid: str):
+    """Synchronous refresh, then redirect back to detail."""
+    await _refresh_mobile_profile(uid)
+    return RedirectResponse(url=f"/users/mobile/{uid}", status_code=303)
 
 
 @router.get("/users/anon", response_class=HTMLResponse)
@@ -205,18 +383,12 @@ async def _render_user_detail(user_type: str, user_id: str | None, range_: str |
     total_history = await count_user_history(user_type, user_id,
                                              date_from=df, date_to=dt_end)
 
-    if user_type == "anon":
-        header_id_html = '<span class="uid-text" style="color:#64748b">(anonymous bucket — no user_id)</span>'
-        avatar = _initial_block("?", "anon")
-        title = "Anonymous"
-    elif user_type == "tg":
-        header_id_html = f'<span class="uid-text">{_esc(user_id)}</span>'
-        avatar = _initial_block(user_id or "?", "tg")
-        title = f"Telegram user {user_id}"
-    else:
-        header_id_html = f'<span class="uid-text" title="{_esc(user_id)}">{_esc(user_id)}</span>'
-        avatar = _initial_block(user_id or "?", "mobile")
-        title = f"Mobile user {_user_short(user_id, 'mobile')}"
+    profile = None
+    if user_type == "mobile" and user_id:
+        profile = await _get_profile_with_refresh(user_id)
+
+    profile_card_html = _profile_card_for(user_type, user_id, profile)
+    title = _detail_title(user_type, user_id, profile)
 
     cards_html = f"""
 <div class="cards">
@@ -293,9 +465,8 @@ async def _render_user_detail(user_type: str, user_id: str | None, range_: str |
 <p class="subtitle">First: {_fmt_ts(stats['first_ts'])} · Last: {_fmt_ts(stats['last_ts'])} · Tokens: {stats['input_tokens']} in / {stats['output_tokens']} out</p>
 
 {SHARED_USERS_STYLES}
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:12px 16px;background:#1e293b;border-radius:10px;border:1px solid #334155">
-  {avatar}{header_id_html}<span class="type-badge {user_type}">{user_type}</span>
-</div>
+{_firebase_status_banner()}
+{profile_card_html}
 
 {_filter_bar(active_preset)}
 {cards_html}

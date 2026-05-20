@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     debug: bool = False
     api_url: str = "http://127.0.0.1:8000"
 
+    # Firebase (mobile user profiles, optional)
+    firebase_cred_path: str = "data/firebase-service-account.json"
+    firebase_cache_ttl_sec: int = 86400  # 24h
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
