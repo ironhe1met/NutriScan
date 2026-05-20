@@ -73,7 +73,9 @@ class Settings(BaseSettings):
 
     # Firebase (mobile user profiles, optional)
     firebase_cred_path: str = "data/firebase-service-account.json"
-    firebase_cache_ttl_sec: int = 86400  # 24h
+    # Background refresh threshold for /users/<uid> pages (admin-driven access).
+    # /analyze/ ALWAYS refreshes (so plan changes propagate within one scan).
+    firebase_cache_ttl_sec: int = 3600  # 1h
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
