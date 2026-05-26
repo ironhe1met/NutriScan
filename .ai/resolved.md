@@ -178,3 +178,22 @@ ctype="multipart/form-data"  len=20197  status=200
 - Документація і брифи мають згадувати обидві платформи
 - При тестуванні треба врахувати iOS-специфіку (Apple Sign-In дає specific email формат, treat as normal)
 **Хто прийняв:** product owner.
+
+## R-015: HTTPS на проді — увімкнено (R-006 SUPERSEDED)
+
+**Дата:** 2026-05-26
+**Питання:** Розгорнути TLS на `nutriscan.radarme.com.ua` (раніше R-006 — відкладено)?
+**Рішення:** **Так.** Let's Encrypt сертифікат отримано через `certbot --nginx --no-redirect`. **Force-redirect 80→443 НЕ ввімкнено.**
+
+**Рольаут (аналогія R-011 для tokens):**
+1. **Зараз (HTTPS optional):** працюють обидва порти — `:80` (HTTP) і `:443` (HTTPS). Старі версії мобільного, що зашиті на HTTP, **продовжують працювати без змін**. Нові версії (як випустимо) — переключають URL на `https://`.
+2. **Wait (~2 тижні):** слідкуємо в nginx access-logs за відсотком HTTP vs HTTPS трафіку. Чекаємо доки 95%+ юзерів оновляться.
+3. **Mandatory:** додаємо `308 Permanent Redirect` (саме 308, не 301 — 308 зберігає POST+body) для `:80 → :443`. Старі версії додатку, які не слідують редіректам на POST, отримають помилку — це форсує оновлення.
+
+**Технічні параметри:**
+- Cert: Let's Encrypt E8, expires 2026-08-24
+- Auto-renew: `certbot.timer` (систамний systemd job)
+- TLS config: nginx default (TLS 1.2+, modern ciphers)
+
+**Хто прийняв:** product owner (2026-05-26).
+**Reference:** R-006 (now obsolete), R-011 (rollout pattern).

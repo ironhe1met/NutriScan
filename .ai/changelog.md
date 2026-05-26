@@ -69,3 +69,13 @@
   - **v1.2.3** — Mandatory token + per-user mobile history + PG + HTTPS + backups
 - ✅ Created [`firebase-integration-brief.md`](firebase-integration-brief.md) — handoff doc for BroCalories mobile devs: what to send (X-User-Id header vs Bearer ID-token), how to generate service-account JSON, which Firestore fields we need (basic + demographics + subscription + marketing).
 - ✅ Expanded mobile_users field list in `ideas.md` (gender/age/country/weight/height/subscription/referral).
+
+## 2026-05-26 — HTTPS enabled (R-015 supersedes R-006)
+
+- ✅ Let's Encrypt cert for nutriscan.radarme.com.ua obtained via `certbot --nginx`.
+- ✅ HTTPS on :443 with valid TLS 1.3, auto-renew configured.
+- ✅ HTTP on :80 **still works** — no force-redirect (rollout pattern as R-011).
+- ✅ Removed stale `nutriscan.conf.bak.20260506` from sites-enabled (had been causing "conflicting server name" warnings since 2026-05-06).
+- ✅ End-to-end verified: POST /analyze/ via HTTPS returns 200 with Sonnet for paid user.
+- ✅ firebase-integration-brief.md updated http → https.
+- 🟡 Next 2 weeks: monitor HTTP vs HTTPS traffic ratio. When >95% HTTPS — add 308 redirect 80→443.
